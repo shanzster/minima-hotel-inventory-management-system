@@ -1,0 +1,74 @@
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Roboto:wght@400;500&display=swap');
+
+:root {
+  /* Colors */
+  --black: #111111;
+  --gray-900: #1C1C1C;
+  --gray-700: #4B4B4B;
+  --gray-500: #8A8A8A;
+  --gray-300: #D1D1D1;
+  --gray-100: #F2F2F2;
+  --whitesmoke: #F7F7F7;
+  --white: #FFFFFF;
+  
+  /* Accent */
+  --accent-sand: #E6E1DA;
+  
+  /* Typography */
+  --font-heading: 'Poppins', system-ui, sans-serif;
+  --font-body: 'Roboto', system-ui, sans-serif;
+}
+
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--whitesmoke);
+  color: var(--black);
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+}
+
+/* Links */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Buttons */
+button {
+  font-family: var(--font-body);
+  border-radius: 6px;
+  padding: 12px 20px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s ease-out;
+}
+
+/* Inputs */
+input, textarea, select {
+  font-family: var(--font-body);
+  border: 1px solid var(--gray-300);
+  padding: 12px;
+  border-radius: 6px;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--black);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
