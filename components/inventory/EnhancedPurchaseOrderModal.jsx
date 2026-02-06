@@ -126,7 +126,7 @@ export default function EnhancedPurchaseOrderModal({
         name: item.name,
         unit: item.unit,
         category: item.category,
-        image: item.image || '/icons/images/placeholder-product.svg',
+        imageUrl: item.imageUrl || '/icons/images/placeholder-product.svg',
         quantity: 1,
         unitCost: autoUnitCost,
         suggestedCost: item.cost || item.estimatedCost || item.lastPurchasePrice || 0,
@@ -596,7 +596,7 @@ export default function EnhancedPurchaseOrderModal({
                             {/* Product Image */}
                             <div className="aspect-square bg-gray-50 rounded-lg mb-3 overflow-hidden group-hover:scale-105 transition-transform duration-300">
                               <img
-                                src={item.image || '/icons/images/placeholder-product.svg'}
+                                src={item.imageUrl || '/icons/images/placeholder-product.svg'}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
@@ -729,7 +729,7 @@ export default function EnhancedPurchaseOrderModal({
                       <div className="flex items-start space-x-3">
                         <div className="relative">
                           <img
-                            src={item.image}
+                            src={item.imageUrl || '/icons/images/placeholder-product.svg'}
                             alt={item.name}
                             className="w-14 h-14 object-cover rounded-lg bg-gray-100"
                             onError={(e) => {
@@ -925,7 +925,7 @@ export default function EnhancedPurchaseOrderModal({
                         {cart.map(item => (
                           <div key={item.id} className="flex items-center space-x-4 py-3 border-b border-gray-100 last:border-b-0">
                             <img
-                              src={item.image}
+                              src={item.imageUrl || '/icons/images/placeholder-product.svg'}
                               alt={item.name}
                               className="w-12 h-12 object-cover rounded-lg bg-gray-100"
                               onError={(e) => {

@@ -211,7 +211,7 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
       <div>
         <h4 className="font-medium text-gray-900 mb-4">Add Items</h4>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Item
             </label>
@@ -227,6 +227,31 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
                 </option>
               ))}
             </select>
+            {/* Show selected item preview */}
+            {selectedItem && (() => {
+              const item = availableItems.find(i => i.id === selectedItem)
+              return item ? (
+                <div className="mt-2 flex items-center space-x-3 p-2 bg-gray-50 rounded-md">
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="h-12 w-12 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                    <p className="text-xs text-gray-500">{item.category?.replace('-', ' ')}</p>
+                  </div>
+                </div>
+              ) : null
+            })()}
           </div>
           
           <div>
@@ -290,28 +315,48 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {formData.items.map((item, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="font-medium">{item.itemName}</div>
-                      <div className="text-gray-500">per {item.itemUnit}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">{item.quantity} {item.itemUnit}</td>
-                    <td className="px-4 py-3 text-sm">{formatCurrency(item.unitCost)}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{formatCurrency(item.totalCost)}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <Button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Remove
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {formData.items.map((item, index) => {
+                  const inventoryItem = availableItems.find(i => i.id === item.inventoryItemId)
+                  return (
+                    <tr key={index}>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center space-x-3">
+                          {inventoryItem?.imageUrl ? (
+                            <img
+                              src={inventoryItem.imageUrl}
+                              alt={item.itemName}
+                              className="h-10 w-10 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium">{item.itemName}</div>
+                            <div className="text-gray-500">per {item.itemUnit}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm">{item.quantity} {item.itemUnit}</td>
+                      <td className="px-4 py-3 text-sm">{formatCurrency(item.unitCost)}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{formatCurrency(item.totalCost)}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <Button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>

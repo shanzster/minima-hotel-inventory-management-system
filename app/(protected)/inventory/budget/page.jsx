@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { usePageTitle } from '../../../../hooks/usePageTitle'
-import { useAuth } from '../../../../hooks/useAuth'
 import Button from '../../../../components/ui/Button'
 import Modal from '../../../../components/ui/Modal'
-import budgetApi from '../../../../lib/budgetApi'
-import purchaseOrderApi from '../../../../lib/purchaseOrderApi'
 import { formatCurrency } from '../../../../lib/utils'
+import budgetApi from '../../../../lib/budgetApi'
 
 export default function BudgetManagementPage() {
-  usePageTitle('Budget Management')
-  const { user } = useAuth()
+  const { setTitle } = usePageTitle()
   const [budgets, setBudgets] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModaBudgets] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingMonth, setEditingMonth] = useState(null)
   const [editAmount, setEditAmount] = useState('')
