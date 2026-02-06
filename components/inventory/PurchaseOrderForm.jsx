@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Badge from '../ui/Badge'
-import { mockSuppliers } from '../../lib/mockData'
+import supplierApi from '../../lib/supplierApi'
 import { formatCurrency } from '../../lib/utils'
 import { CURRENCY } from '../../lib/constants'
 
@@ -16,18 +16,38 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
     expectedDelivery: '',
     notes: ''
   })
+  const [availableSuppliers, setAvailableSuppliers] = useState([])
   const [selectedSupplier, setSelectedSupplier] = useState('')
   const [selectedItem, setSelectedItem] = useState('')
   const [itemQuantity, setItemQuantity] = useState('')
   const [itemUnitCost, setItemUnitCost] = useState('')
   const [errors, setErrors] = useState({})
-  
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(true)
+
+  // Load suppliers on component mount
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      try {
+        setIsLoadingSuppliers(true)
+        const suppliers = await supplierApi.getActiveSuppliers()
+        setAvailableSuppliers(suppliers)
+      } catch (error) {
+        console.error('Error loading suppliers:', error)
+        setAvailableSuppliers([])
+      } finally {
+        setIsLoadingSuppliers(false)
+      }
+    }
+
+    loadSuppliers()
+  }, [])
+
   // Calculate total amount
   const totalAmount = formData.items.reduce((sum, item) => sum + item.totalCost, 0)
   
   // Handle supplier selection
   const handleSupplierChange = (supplierId) => {
-    const supplier = mockSuppliers.find(s => s.id === supplierId)
+    const supplier = availableSuppliers.find(s => s.id === supplierId)
     setSelectedSupplier(supplierId)
     setFormData(prev => ({
       ...prev,
@@ -144,10 +164,13 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
         <select
           value={selectedSupplier}
           onChange={(e) => handleSupplierChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+          disabled={isLoadingSuppliers}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
-          <option value="">Select a supplier...</option>
-          {mockSuppliers.map(supplier => (
+          <option value="">
+            {isLoadingSuppliers ? 'Loading suppliers...' : 'Select a supplier...'}
+          </option>
+          {availableSuppliers.map(supplier => (
             <option key={supplier.id} value={supplier.id}>
               {supplier.name} - {supplier.contactPerson}
             </option>
@@ -155,6 +178,11 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
         </select>
         {errors.supplier && (
           <p className="mt-1 text-sm text-red-600">{errors.supplier}</p>
+        )}
+        {availableSuppliers.length === 0 && !isLoadingSuppliers && (
+          <p className="mt-1 text-sm text-blue-600">
+            No approved suppliers available. <a href="/suppliers" className="underline">Add suppliers</a>
+          </p>
         )}
       </div>
       

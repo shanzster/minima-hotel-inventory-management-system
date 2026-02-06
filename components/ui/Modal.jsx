@@ -7,14 +7,16 @@ export default function Modal({
   title, 
   children, 
   size = 'md',
-  className = ''
+  className = '',
+  centered = false
 }) {
   // Size variants following design system
   const sizeStyles = {
     sm: 'max-w-md',
     md: 'max-w-lg', 
     lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
+    xl: 'max-w-4xl',
+    full: 'max-w-none w-full h-full max-h-none m-0 rounded-none lg:max-w-[80vw] lg:max-h-[90vh] lg:m-4 lg:rounded-lg'
   }
   
   // Handle escape key press
@@ -41,7 +43,9 @@ export default function Modal({
   
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto"
+      className={`fixed inset-0 z-50 flex ${centered ? 'items-center' : 'items-start'} justify-center overflow-y-auto ${
+        size === 'full' ? 'p-0 lg:p-4' : 'p-4'
+      }`}
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
     >
       {/* Overlay */}
@@ -54,7 +58,9 @@ export default function Modal({
       {/* Modal */}
       <div 
         className={`
-          relative bg-white rounded-md shadow-lg w-full my-8 max-h-[90vh] flex flex-col
+          relative bg-white shadow-lg w-full flex flex-col
+          ${size === 'full' ? 'h-full lg:my-8 lg:max-h-[90vh] lg:rounded-lg' : 'rounded-md max-h-[90vh]'}
+          ${centered ? '' : 'my-8'}
           ${sizeStyles[size]}
           ${className}
         `}

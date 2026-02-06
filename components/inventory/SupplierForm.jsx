@@ -17,10 +17,10 @@ export default function SupplierForm({
     email: supplier?.email || '',
     phone: supplier?.phone || '',
     address: supplier?.address || '',
-    categories: supplier?.categories || [],
-    paymentTerms: supplier?.contractDetails?.paymentTerms || 'Net 30',
-    deliveryTerms: supplier?.contractDetails?.deliveryTerms || 'FOB Destination',
-    minimumOrderValue: supplier?.contractDetails?.minimumOrderValue || 0
+    leadTimeDays: supplier?.leadTimeDays || 1,
+    paymentTerms: supplier?.paymentTerms || 'COD',
+    rating: supplier?.rating || 0,
+    categories: supplier?.categories || []
   })
   
   const [errors, setErrors] = useState({})
@@ -49,13 +49,13 @@ export default function SupplierForm({
     if (!formData.address.trim()) {
       newErrors.address = 'Address is required'
     }
-    
-    if (formData.categories.length === 0) {
-      newErrors.categories = 'At least one category is required'
+
+    if (formData.leadTimeDays < 1) {
+      newErrors.leadTimeDays = 'Lead time must be at least 1 day'
     }
-    
-    if (formData.minimumOrderValue < 0) {
-      newErrors.minimumOrderValue = 'Minimum order value cannot be negative'
+
+    if (formData.rating < 0 || formData.rating > 5) {
+      newErrors.rating = 'Rating must be between 0 and 5'
     }
     
     setErrors(newErrors)
@@ -75,13 +75,13 @@ export default function SupplierForm({
       email: formData.email.trim(),
       phone: formData.phone.trim(),
       address: formData.address.trim(),
+      leadTimeDays: parseInt(formData.leadTimeDays) || 1,
+      paymentTerms: formData.paymentTerms,
+      rating: parseFloat(formData.rating) || 0,
       categories: formData.categories,
-      contractDetails: {
-        startDate: new Date(),
-        paymentTerms: formData.paymentTerms,
-        deliveryTerms: formData.deliveryTerms,
-        minimumOrderValue: parseFloat(formData.minimumOrderValue) || 0
-      }
+      totalOrders: supplier?.totalOrders || 0,
+      isActive: supplier?.isActive || false,
+      isApproved: supplier?.isApproved || false
     }
     
     onSubmit(supplierData)
@@ -225,64 +225,65 @@ export default function SupplierForm({
         )}
       </div>
       
-      {/* Contract Details */}
+      {/* Supplier Details */}
       <div className="space-y-4">
-        <h4 className="font-heading font-medium text-lg">Contract Details</h4>
-        
+        <h4 className="font-heading font-medium text-lg">Supplier Details</h4>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lead Time (Days) *
+            </label>
+            <Input
+              type="number"
+              value={formData.leadTimeDays}
+              onChange={(value) => updateField('leadTimeDays', parseInt(value) || 1)}
+              placeholder="e.g., 3"
+              min="1"
+              className={errors.leadTimeDays ? 'border-red-500' : ''}
+            />
+            {errors.leadTimeDays && (
+              <p className="text-red-500 text-sm mt-1">{errors.leadTimeDays}</p>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Payment Terms
             </label>
-            <Input
-              type="select"
+            <select
               value={formData.paymentTerms}
-              onChange={(value) => updateField('paymentTerms', value)}
-              options={[
-                { label: 'Net 15', value: 'Net 15' },
-                { label: 'Net 30', value: 'Net 30' },
-                { label: 'Net 45', value: 'Net 45' },
-                { label: 'Net 60', value: 'Net 60' },
-                { label: 'COD', value: 'COD' },
-                { label: 'Prepaid', value: 'Prepaid' }
-              ]}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Delivery Terms
-            </label>
-            <Input
-              type="select"
-              value={formData.deliveryTerms}
-              onChange={(value) => updateField('deliveryTerms', value)}
-              options={[
-                { label: 'FOB Destination', value: 'FOB Destination' },
-                { label: 'FOB Origin', value: 'FOB Origin' },
-                { label: 'CIF', value: 'CIF' },
-                { label: 'DDP', value: 'DDP' }
-              ]}
-            />
+              onChange={(e) => updateField('paymentTerms', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+            >
+              <option value="COD">Cash on Delivery</option>
+              <option value="Net 15">Net 15</option>
+              <option value="Net 30">Net 30</option>
+              <option value="Net 45">Net 45</option>
+              <option value="Net 60">Net 60</option>
+              <option value="Prepaid">Prepaid</option>
+            </select>
           </div>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Minimum Order Value ({CURRENCY.SYMBOL})
+            Initial Rating (0-5)
           </label>
           <Input
             type="number"
-            value={formData.minimumOrderValue}
-            onChange={(value) => updateField('minimumOrderValue', value)}
-            placeholder="0"
+            value={formData.rating}
+            onChange={(value) => updateField('rating', Math.max(0, Math.min(5, parseFloat(value) || 0)))}
+            placeholder="0.0"
             min="0"
-            step="0.01"
-            className={errors.minimumOrderValue ? 'border-red-500' : ''}
+            max="5"
+            step="0.1"
+            className={errors.rating ? 'border-red-500' : ''}
           />
-          {errors.minimumOrderValue && (
-            <p className="text-red-500 text-sm mt-1">{errors.minimumOrderValue}</p>
+          {errors.rating && (
+            <p className="text-red-500 text-sm mt-1">{errors.rating}</p>
           )}
+          <p className="text-xs text-gray-500 mt-1">Rating will be updated based on performance over time</p>
         </div>
       </div>
       

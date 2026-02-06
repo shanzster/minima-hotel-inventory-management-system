@@ -30,6 +30,7 @@ export default function AuditsPage() {
   const [sortDirection, setSortDirection] = useState('desc')
   const [showCreateAuditModal, setShowCreateAuditModal] = useState(false)
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false)
+  const [showFilterModal, setShowFilterModal] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 25
   
@@ -401,7 +402,7 @@ export default function AuditsPage() {
   ]
   
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-4 mx-2">
       <div className="mb-6 flex justify-between items-center">
         <div>
           <p className="text-gray-500 font-body">
@@ -515,77 +516,72 @@ export default function AuditsPage() {
         </div>
         
         {/* Table Header */}
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h3 className="font-heading font-medium text-lg">
+        <div className="border-b border-gray-200 px-4 py-3">
+          <h3 className="font-heading font-medium text-base">
             {activeTab === 'audits' ? 'Inventory Audits' : 'Adjustment Requests'}
-            <span className="text-gray-500 font-normal ml-2">
-              ({filteredData.length} items)
+            <span className="text-gray-500 font-normal ml-2 text-sm">
+              ({filteredData.length} {filteredData.length === 1 ? 'item' : 'items'})
             </span>
           </h3>
         </div>
         
-        {/* Filter Bar */}
-        <div className="border-b border-gray-200 p-6">
-          <FilterBar
-            searchQuery={searchQuery}
-            onSearch={setSearchQuery}
-            selectedCategory={typeFilter}
-            onCategoryFilter={setTypeFilter}
-            categoryOptions={
-              activeTab === 'audits' 
-                ? [
-                    { label: 'All Types', value: '' },
-                    { label: 'Scheduled', value: 'scheduled' },
-                    { label: 'Spot Check', value: 'spot-check' },
-                    { label: 'Annual', value: 'annual' },
-                    { label: 'Compliance', value: 'compliance' }
-                  ]
-                : [
-                    { label: 'All Types', value: '' },
-                    { label: 'Stock Adjustment', value: 'stock-adjustment' },
-                    { label: 'Write Off', value: 'write-off' },
-                    { label: 'Condition Update', value: 'condition-update' }
-                  ]
-            }
-            expiryFilter={statusFilter}
-            onExpiryFilter={setStatusFilter}
-            expiryOptions={
-              activeTab === 'audits'
-                ? [
-                    { label: 'All Statuses', value: '' },
-                    { label: 'In Progress', value: 'in-progress' },
-                    { label: 'Completed', value: 'completed' },
-                    { label: 'Approved', value: 'approved' },
-                    { label: 'Requires Review', value: 'requires-review' }
-                  ]
-                : [
-                    { label: 'All Statuses', value: '' },
-                    { label: 'Pending', value: 'pending' },
-                    { label: 'Approved', value: 'approved' },
-                    { label: 'Requires Review', value: 'requires-review' },
-                    { label: 'Rejected', value: 'rejected' }
-                  ]
-            }
-            onSortChange={(sortValue) => {
-              switch (sortValue) {
-                case 'name':
-                  setSortBy(activeTab === 'audits' ? 'auditNumber' : 'itemName')
-                  setSortDirection('asc')
-                  break
-                case 'recent':
-                  setSortBy(activeTab === 'audits' ? 'auditDate' : 'requestedAt')
-                  setSortDirection('desc')
-                  break
-                case 'status':
-                  setSortBy('status')
-                  setSortDirection('asc')
-                  break
-                default:
-                  setSortBy(activeTab === 'audits' ? 'auditDate' : 'requestedAt')
-                  setSortDirection('desc')
-              }
-            }}
-          />
+        {/* Search Bar and Action Buttons Row */}
+        <div className="border-b border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            {/* Search Bar */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder={activeTab === 'audits' ? 'Search audits...' : 'Search adjustment requests...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-gray-200 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                />
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-3 ml-4">
+              {/* Filter Button */}
+              <button
+                onClick={() => setShowFilterModal(true)}
+                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+              >
+                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                </svg>
+                Filter
+              </button>
+              
+              {/* Print Button */}
+              <button
+                onClick={() => alert('Print functionality coming soon')}
+                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+              >
+                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print
+              </button>
+              
+              {/* Export to CSV Button */}
+              <button
+                onClick={() => alert('Export functionality coming soon')}
+                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all backdrop-blur-sm"
+              >
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
+          </div>
         </div>
         
         <InventoryTable
@@ -628,6 +624,138 @@ export default function AuditsPage() {
           onSubmit={handleCreateAdjustment}
           onCancel={() => setShowAdjustmentModal(false)}
         />
+      </Modal>
+      
+      {/* Filter Modal */}
+      <Modal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        title="Filter Options"
+      >
+        <div className="space-y-4">
+          {/* Type Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {activeTab === 'audits' ? 'Audit Type' : 'Request Type'}
+            </label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+            >
+              {activeTab === 'audits' ? (
+                <>
+                  <option value="">All Types</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="spot-check">Spot Check</option>
+                  <option value="annual">Annual</option>
+                  <option value="compliance">Compliance</option>
+                </>
+              ) : (
+                <>
+                  <option value="">All Types</option>
+                  <option value="stock-adjustment">Stock Adjustment</option>
+                  <option value="write-off">Write Off</option>
+                  <option value="condition-update">Condition Update</option>
+                </>
+              )}
+            </select>
+          </div>
+          
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+            >
+              {activeTab === 'audits' ? (
+                <>
+                  <option value="">All Statuses</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="approved">Approved</option>
+                  <option value="requires-review">Requires Review</option>
+                </>
+              ) : (
+                <>
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="requires-review">Requires Review</option>
+                  <option value="rejected">Rejected</option>
+                </>
+              )}
+            </select>
+          </div>
+          
+          {/* Sort By */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sort By
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+            >
+              {activeTab === 'audits' ? (
+                <>
+                  <option value="auditDate">Date</option>
+                  <option value="auditNumber">Audit Number</option>
+                  <option value="status">Status</option>
+                  <option value="complianceScore">Compliance Score</option>
+                </>
+              ) : (
+                <>
+                  <option value="requestedAt">Date</option>
+                  <option value="itemName">Item Name</option>
+                  <option value="status">Status</option>
+                  <option value="priority">Priority</option>
+                </>
+              )}
+            </select>
+          </div>
+          
+          {/* Sort Direction */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sort Direction
+            </label>
+            <select
+              value={sortDirection}
+              onChange={(e) => setSortDirection(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+            >
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setTypeFilter('')
+                setStatusFilter('')
+                setSortBy(activeTab === 'audits' ? 'auditDate' : 'requestedAt')
+                setSortDirection('desc')
+              }}
+            >
+              Clear Filters
+            </Button>
+            <Button
+              onClick={() => setShowFilterModal(false)}
+              className="bg-black text-white hover:bg-gray-800"
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

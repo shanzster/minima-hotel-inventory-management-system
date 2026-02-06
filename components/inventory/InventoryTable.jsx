@@ -3,15 +3,16 @@ import Table from '../ui/Table'
 import StockIndicator from './StockIndicator'
 import Badge from '../ui/Badge'
 
-export default function InventoryTable({ 
-  data = [], 
-  columns = [], 
-  onRowClick, 
-  sortBy, 
-  sortDirection = 'asc', 
+export default function InventoryTable({
+  data = [],
+  columns = [],
+  onRowClick,
+  sortBy,
+  sortDirection = 'asc',
   onSort,
   pagination,
   onPageChange,
+  emptyStateMessage,
   className = ''
 }) {
   // Enhanced columns with inventory-specific renderers
@@ -88,6 +89,7 @@ export default function InventoryTable({
         onSort={onSort}
         pagination={pagination}
         onPageChange={onPageChange}
+        emptyStateMessage={emptyStateMessage}
       />
     </div>
   )

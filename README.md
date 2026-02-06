@@ -114,10 +114,28 @@ minima-inventory/
    npm install
    ```
 
-3. Set up environment variables:
+3. Set up Firebase (for real database data):
    ```bash
-   cp .env.local.example .env.local
-   # Edit .env.local with your configuration
+   # Create Firebase project at https://console.firebase.google.com/
+   # Enable Realtime Database in your Firebase project
+   # Get your config from Project Settings > General > Your apps > Web app
+
+   # Create .env.local file with your Firebase config:
+   NEXT_PUBLIC_FIREBASE_API_KEY=your-actual-api-key-here
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+   NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://your-project-default-rtdb.firebaseio.com
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-actual-project-id
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789012
+   NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abcdef123456
+
+   # Set Firebase Realtime Database rules to allow read/write:
+   {
+     "rules": {
+       ".read": true,
+       ".write": true
+     }
+   }
    ```
 
 4. Run the development server:
@@ -126,7 +144,7 @@ minima-inventory/
    ```
 
 5. Open the application:
-   Navigate to [http://localhost:3000](http://localhost:3000)
+   Navigate to [http://localhost:5173](http://localhost:5173)
 
 ### Development Login
 For development, the system auto-logs in as an Inventory Controller. For testing different roles:

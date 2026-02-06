@@ -22,16 +22,21 @@ export default function Button({
     lg: 'px-6 py-4 text-lg'
   }
   
+  const buttonClasses = [
+    'font-body',
+    'rounded-sm',
+    'transition-all',
+    'duration-200',
+    'ease-out',
+    variantStyles[variant],
+    sizeStyles[size],
+    className
+  ].filter(Boolean).join(' ')
+  
   return (
     <button 
       type={type}
-      className={`
-        font-body rounded-sm
-        transition-all duration-200 ease-out
-        ${variantStyles[variant]}
-        ${sizeStyles[size]}
-        ${className}
-      `}
+      className={buttonClasses}
       disabled={disabled}
       onClick={onClick}
       {...props}

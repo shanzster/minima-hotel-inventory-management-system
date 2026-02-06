@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import Button from './Button'
 
-export default function Table({ 
-  data = [], 
-  columns = [], 
-  onRowClick, 
-  sortBy, 
-  sortDirection = 'asc', 
+export default function Table({
+  data = [],
+  columns = [],
+  onRowClick,
+  sortBy,
+  sortDirection = 'asc',
   onSort,
   pagination,
   onPageChange,
@@ -20,6 +20,7 @@ export default function Table({
   showQuickFilters = false,
   quickFilters = [],
   onQuickFilter,
+  emptyStateMessage = "No data available",
   className = ''
 }) {
   const [currentSortBy, setCurrentSortBy] = useState(sortBy)
@@ -240,15 +241,15 @@ export default function Table({
           <tbody className="bg-white divide-y divide-gray-200">
             {data.length === 0 ? (
               <tr>
-                <td 
-                  colSpan={columns.length} 
+                <td
+                  colSpan={columns.length}
                   className="px-6 py-12 text-center text-gray-500 font-body"
                 >
                   <div className="flex flex-col items-center">
                     <svg className="h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
-                    <p className="text-sm">No data available</p>
+                    <p className="text-sm">{emptyStateMessage}</p>
                   </div>
                 </td>
               </tr>

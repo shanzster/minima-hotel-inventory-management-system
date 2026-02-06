@@ -1,20 +1,55 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
 import Badge from '../ui/Badge'
 import { useAuth } from '../../hooks/useAuth'
+import roomsApi from '../../lib/roomsApi'
 
 export default function AssetManager({ assets = [], onAssetUpdate, conditionFilter = '', categoryFilter = '' }) {
   const { user } = useAuth()
   const [selectedAsset, setSelectedAsset] = useState(null)
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
-  const [showConditionModal, setShowConditionModal] = useState(false)
-  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false)
-  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false)
-  const [adjustmentType, setAdjustmentType] = useState('adjustment')
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [rooms, setRooms] = useState([])
+  const [loadingRooms, setLoadingRooms] = useState(true)
+  const [editForm, setEditForm] = useState({
+    name: '',
+    category: 'equipment',
+    condition: 'good',
+    purchaseDate: '',
+    value: '',
+    serialNumber: '',
+    notes: '',
+    room: '',
+    roomId: ''
+  })
+
+  // Load rooms from Firebase
+  useEffect(() => {
+    const loadRooms = async () => {
+      try {
+        setLoadingRooms(true)
+        const roomsData = await roomsApi.getAll()
+        setRooms(roomsData)
+      } catch (error) {
+        console.error('Error loading rooms:', error)
+      } finally {
+        setLoadingRooms(false)
+      }
+    }
+
+    loadRooms()
+
+    // Set up real-time listener
+    const unsubscribe = roomsApi.onRoomsChange((roomsData) => {
+      setRooms(roomsData)
+    })
+
+    return unsubscribe
+  }, [])
 
   // Filter assets based on props
   const getFilteredAssets = () => {
@@ -33,188 +68,75 @@ export default function AssetManager({ assets = [], onAssetUpdate, conditionFilt
 
   const filteredAssets = getFilteredAssets()
 
-  // Asset assignment form state
-  const [assignmentForm, setAssignmentForm] = useState({
-    assignedTo: '',
-    assignedDepartment: '',
-    notes: ''
-  })
+  // Handle delete asset
+  const handleDeleteAsset = async (assetId) => {
+    try {
+      const inventoryApi = (await import('../../lib/inventoryApi')).default
+      await inventoryApi.delete(assetId)
+      
+      // Show success message
+      alert('Asset deleted successfully')
+      
+      // Refresh the page or update the assets list
+      window.location.reload()
+    } catch (error) {
+      console.error('Error deleting asset:', error)
+      alert('Failed to delete asset. Please try again.')
+    }
+  }
 
-  // Condition update form state
-  const [conditionForm, setConditionForm] = useState({
-    newCondition: '',
-    notes: ''
-  })
-
-  // Maintenance form state
-  const [maintenanceForm, setMaintenanceForm] = useState({
-    maintenanceType: '',
-    scheduledDate: '',
-    priority: 'normal',
-    notes: ''
-  })
-
-  // Adjustment form state
-  const [adjustmentForm, setAdjustmentForm] = useState({
-    reason: '',
-    value: '',
-    notes: ''
-  })
-
-  const departments = [
-    'housekeeping',
-    'kitchen',
-    'maintenance',
-    'front-desk',
-    'management'
-  ]
-
-  const conditions = [
-    'excellent',
-    'good',
-    'fair',
-    'poor'
-  ]
-
-  const maintenanceTypes = [
-    'preventive',
-    'corrective',
-    'emergency',
-    'routine'
-  ]
-
-  const priorities = [
-    'low',
-    'normal',
-    'high',
-    'critical'
-  ]
-
-  const handleAssignmentSubmit = (e) => {
+  // Handle edit asset
+  const handleEditSubmit = async (e) => {
     e.preventDefault()
     
-    const assetAction = {
-      assetId: selectedAsset.id,
-      type: 'assignment',
-      details: {
-        assignedTo: assignmentForm.assignedTo,
-        assignedDepartment: assignmentForm.assignedDepartment,
-        notes: assignmentForm.notes,
-        previousAssignment: selectedAsset.assignedTo
+    try {
+      const inventoryApi = (await import('../../lib/inventoryApi')).default
+      
+      // Find the selected room details
+      const selectedRoom = rooms.find(r => r.id === editForm.roomId)
+      
+      const updatedAsset = {
+        ...selectedAsset,
+        name: editForm.name,
+        category: editForm.category,
+        condition: editForm.condition,
+        purchaseDate: editForm.purchaseDate,
+        value: parseFloat(editForm.value) || 0,
+        serialNumber: editForm.serialNumber,
+        notes: editForm.notes,
+        room: selectedRoom?.roomNumber || editForm.room,
+        roomId: editForm.roomId,
+        location: `Floor ${selectedRoom?.floor}, Room ${selectedRoom?.roomNumber || editForm.room}`
       }
+      
+      await inventoryApi.update(selectedAsset.id, updatedAsset)
+      
+      // Close modal and refresh
+      setShowEditModal(false)
+      setSelectedAsset(null)
+      alert('Asset updated successfully')
+      window.location.reload()
+    } catch (error) {
+      console.error('Error updating asset:', error)
+      alert('Failed to update asset. Please try again.')
     }
-
-    onAssetUpdate?.(assetAction, user)
-    
-    // Reset form and close modal
-    setAssignmentForm({ assignedTo: '', assignedDepartment: '', notes: '' })
-    setShowAssignmentModal(false)
-    setSelectedAsset(null)
   }
 
-  const handleConditionSubmit = (e) => {
-    e.preventDefault()
-    
-    const assetAction = {
-      assetId: selectedAsset.id,
-      type: 'condition-update',
-      details: {
-        previousCondition: selectedAsset.condition,
-        newCondition: conditionForm.newCondition,
-        notes: conditionForm.notes
-      }
-    }
-
-    onAssetUpdate?.(assetAction, user)
-    
-    // Reset form and close modal
-    setConditionForm({ newCondition: '', notes: '' })
-    setShowConditionModal(false)
-    setSelectedAsset(null)
-  }
-
-  const handleMaintenanceSubmit = (e) => {
-    e.preventDefault()
-    
-    const assetAction = {
-      assetId: selectedAsset.id,
-      type: 'maintenance-schedule',
-      details: {
-        maintenanceType: maintenanceForm.maintenanceType,
-        scheduledDate: maintenanceForm.scheduledDate,
-        priority: maintenanceForm.priority,
-        notes: maintenanceForm.notes
-      }
-    }
-
-    onAssetUpdate?.(assetAction, user)
-    
-    // Reset form and close modal
-    setMaintenanceForm({ maintenanceType: '', scheduledDate: '', priority: 'normal', notes: '' })
-    setShowMaintenanceModal(false)
-    setSelectedAsset(null)
-  }
-
-  const handleAdjustmentSubmit = (e) => {
-    e.preventDefault()
-    
-    const assetAction = {
-      assetId: selectedAsset.id,
-      type: adjustmentType,
-      details: {
-        reason: adjustmentForm.reason,
-        value: parseFloat(adjustmentForm.value) || 0,
-        notes: adjustmentForm.notes
-      }
-    }
-
-    onAssetUpdate?.(assetAction, user)
-    
-    // Reset form and close modal
-    setAdjustmentForm({ reason: '', value: '', notes: '' })
-    setShowAdjustmentModal(false)
-    setSelectedAsset(null)
-  }
-
-  const openAssignmentModal = (asset) => {
+  // Open edit modal
+  const openEditModal = (asset) => {
     setSelectedAsset(asset)
-    setAssignmentForm({
-      assignedTo: asset.assignedTo || '',
-      assignedDepartment: asset.assignedDepartment || '',
-      notes: ''
+    setEditForm({
+      name: asset.name || '',
+      category: asset.category || 'equipment',
+      condition: asset.condition || 'good',
+      purchaseDate: asset.purchaseDate || '',
+      value: asset.value || '',
+      serialNumber: asset.serialNumber || '',
+      notes: asset.notes || '',
+      room: asset.room || '',
+      roomId: asset.roomId || ''
     })
-    setShowAssignmentModal(true)
-  }
-
-  const openConditionModal = (asset) => {
-    setSelectedAsset(asset)
-    setConditionForm({
-      newCondition: asset.condition || '',
-      notes: ''
-    })
-    setShowConditionModal(true)
-  }
-
-  const openMaintenanceModal = (asset) => {
-    setSelectedAsset(asset)
-    setMaintenanceForm({
-      maintenanceType: '',
-      scheduledDate: '',
-      priority: 'normal',
-      notes: ''
-    })
-    setShowMaintenanceModal(true)
-  }
-
-  const openAdjustmentModal = (asset, type) => {
-    setSelectedAsset(asset)
-    setAdjustmentType(type)
-    setAdjustmentForm({
-      reason: '',
-      value: '',
-      notes: ''
-    })
-    setShowAdjustmentModal(true)
+    setShowEditModal(true)
   }
 
   return (
@@ -228,13 +150,13 @@ export default function AssetManager({ assets = [], onAssetUpdate, conditionFilt
                 Asset
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Category
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Condition
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Location
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Assignment
+                Room
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -265,55 +187,77 @@ export default function AssetManager({ assets = [], onAssetUpdate, conditionFilt
                     </Badge>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {asset.location}
+                    <Badge variant="normal">
+                      {asset.category ? asset.category.charAt(0).toUpperCase() + asset.category.slice(1) : 'N/A'}
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {asset.assignedTo || 'Unassigned'}
-                    </div>
-                    {asset.assignedDepartment && (
-                      <div className="text-sm text-gray-500">
-                        {asset.assignedDepartment}
+                    <Badge variant={
+                      asset.condition === 'good' ? 'success' :
+                      asset.condition === 'needs-maintenance' ? 'warning' :
+                      asset.condition === 'damaged' ? 'error' : 'normal'
+                    }>
+                      {asset.condition ? asset.condition.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Good'}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {asset.room ? (
+                      <div className="flex items-center space-x-1">
+                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>Room {asset.room}</span>
                       </div>
+                    ) : (
+                      <span className="text-gray-400">Not assigned</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openAssignmentModal(asset)}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedAsset(asset)
+                          setShowViewModal(true)
+                        }}
+                        className="inline-flex items-center px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors backdrop-blur-sm"
+                        title="View asset details"
                       >
-                        Assign
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openConditionModal(asset)}
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openEditModal(asset)
+                        }}
+                        className="inline-flex items-center px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors backdrop-blur-sm"
+                        title="Edit asset"
                       >
-                        Condition
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openMaintenanceModal(asset)}
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm(`Are you sure you want to delete ${asset.name}?`)) {
+                            handleDeleteAsset(asset.id)
+                          }
+                        }}
+                        className="inline-flex items-center px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors backdrop-blur-sm"
+                        title="Delete asset"
                       >
-                        Maintenance
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openAdjustmentModal(asset, 'adjustment')}
-                      >
-                        Adjust
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openAdjustmentModal(asset, 'write-off')}
-                      >
-                        Write-off
-                      </Button>
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -328,258 +272,258 @@ export default function AssetManager({ assets = [], onAssetUpdate, conditionFilt
         )}
       </div>
 
-      {/* Assignment Modal */}
+      {/* View Asset Modal */}
       <Modal
-        isOpen={showAssignmentModal}
+        isOpen={showViewModal}
         onClose={() => {
-          setShowAssignmentModal(false)
+          setShowViewModal(false)
           setSelectedAsset(null)
         }}
-        title={`Assign Asset - ${selectedAsset?.name}`}
-        size="md"
+        title={`Asset Details - ${selectedAsset?.name}`}
+        size="lg"
       >
-        <form onSubmit={handleAssignmentSubmit} className="space-y-4">
-          <Input
-            label="Assigned To"
-            type="text"
-            value={assignmentForm.assignedTo}
-            onChange={(e) => setAssignmentForm(prev => ({ ...prev, assignedTo: e.target.value }))}
-            placeholder="Enter person or role"
-            required
-          />
-          
-          <Input
-            label="Department"
-            type="select"
-            value={assignmentForm.assignedDepartment}
-            onChange={(e) => setAssignmentForm(prev => ({ ...prev, assignedDepartment: e.target.value }))}
-            required
-          >
-            <option value="">Select Department</option>
-            {departments.map(dept => (
-              <option key={dept} value={dept}>
-                {dept.charAt(0).toUpperCase() + dept.slice(1)}
-              </option>
-            ))}
-          </Input>
-
-          <Input
-            label="Notes"
-            type="textarea"
-            value={assignmentForm.notes}
-            onChange={(e) => setAssignmentForm(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="Assignment notes (optional)"
-            rows={3}
-          />
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setShowAssignmentModal(false)
-                setSelectedAsset(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">
-              Assign Asset
-            </Button>
+        {selectedAsset && (
+          <div className="space-y-6">
+            {/* Asset Information */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Asset Name</label>
+                <p className="text-base text-gray-900">{selectedAsset.name}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <Badge variant="normal">
+                  {selectedAsset.category ? selectedAsset.category.charAt(0).toUpperCase() + selectedAsset.category.slice(1) : 'N/A'}
+                </Badge>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                <Badge variant={
+                  selectedAsset.condition === 'good' ? 'success' :
+                  selectedAsset.condition === 'needs-maintenance' ? 'warning' :
+                  selectedAsset.condition === 'damaged' ? 'error' : 'normal'
+                }>
+                  {selectedAsset.condition ? selectedAsset.condition.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Good'}
+                </Badge>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                <p className="text-base text-gray-900">{selectedAsset.serialNumber || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
+                <p className="text-base text-gray-900">
+                  {selectedAsset.room ? `Room ${selectedAsset.room}` : 'Not assigned'}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <p className="text-base text-gray-900">{selectedAsset.location || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                <p className="text-base text-gray-900">
+                  {selectedAsset.purchaseDate ? new Date(selectedAsset.purchaseDate).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
+                <p className="text-base text-gray-900">
+                  {selectedAsset.value ? `₱${selectedAsset.value.toFixed(2)}` : 'N/A'}
+                </p>
+              </div>
+            </div>
+            
+            {/* Notes */}
+            {selectedAsset.notes && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <p className="text-base text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedAsset.notes}</p>
+              </div>
+            )}
+            
+            {/* Description */}
+            {selectedAsset.description && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <p className="text-base text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedAsset.description}</p>
+              </div>
+            )}
+            
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowViewModal(false)
+                  setSelectedAsset(null)
+                }}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowViewModal(false)
+                  openEditModal(selectedAsset)
+                }}
+                className="bg-black text-white hover:bg-gray-800"
+              >
+                Edit Asset
+              </Button>
+            </div>
           </div>
-        </form>
+        )}
       </Modal>
 
-      {/* Condition Update Modal */}
+      {/* Edit Asset Modal */}
       <Modal
-        isOpen={showConditionModal}
+        isOpen={showEditModal}
         onClose={() => {
-          setShowConditionModal(false)
+          setShowEditModal(false)
           setSelectedAsset(null)
         }}
-        title={`Update Condition - ${selectedAsset?.name}`}
-        size="md"
+        title={`Edit Asset - ${selectedAsset?.name}`}
+        size="lg"
       >
-        <form onSubmit={handleConditionSubmit} className="space-y-4">
-          <div className="mb-4 p-3 bg-gray-50 rounded-md">
-            <p className="text-sm text-gray-600">
-              Current Condition: <Badge variant={selectedAsset?.condition}>
-                {selectedAsset?.condition}
-              </Badge>
-            </p>
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Asset Name *
+              </label>
+              <Input
+                type="text"
+                value={editForm.name}
+                onChange={(value) => setEditForm({ ...editForm, name: value })}
+                placeholder="e.g., Air Conditioner, TV, Bed"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category *
+              </label>
+              <select
+                value={editForm.category}
+                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                required
+              >
+                <option value="equipment">Equipment</option>
+                <option value="furniture">Furniture</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Serial Number
+              </label>
+              <Input
+                type="text"
+                value={editForm.serialNumber}
+                onChange={(value) => setEditForm({ ...editForm, serialNumber: value })}
+                placeholder="Optional"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Condition *
+              </label>
+              <select
+                value={editForm.condition}
+                onChange={(e) => setEditForm({ ...editForm, condition: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                required
+              >
+                <option value="good">Good</option>
+                <option value="needs-maintenance">Needs Maintenance</option>
+                <option value="damaged">Damaged</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Purchase Date
+              </label>
+              <Input
+                type="date"
+                value={editForm.purchaseDate}
+                onChange={(value) => setEditForm({ ...editForm, purchaseDate: value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Value (₱)
+              </label>
+              <Input
+                type="number"
+                value={editForm.value}
+                onChange={(value) => setEditForm({ ...editForm, value: value })}
+                placeholder="0.00"
+                step="0.01"
+              />
+            </div>
+            
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Room Assignment *
+              </label>
+              <select
+                value={editForm.roomId}
+                onChange={(e) => setEditForm({ ...editForm, roomId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                required
+                disabled={loadingRooms}
+              >
+                <option value="">{loadingRooms ? 'Loading rooms...' : 'Select Room'}</option>
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>
+                    Room {room.roomNumber} - {room.type} (Floor {room.floor})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <Input
-            label="New Condition"
-            type="select"
-            value={conditionForm.newCondition}
-            onChange={(e) => setConditionForm(prev => ({ ...prev, newCondition: e.target.value }))}
-            required
-          >
-            <option value="">Select Condition</option>
-            {conditions.map(condition => (
-              <option key={condition} value={condition}>
-                {condition.charAt(0).toUpperCase() + condition.slice(1)}
-              </option>
-            ))}
-          </Input>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+              rows="3"
+              placeholder="Additional information..."
+            />
+          </div>
 
-          <Input
-            label="Notes"
-            type="textarea"
-            value={conditionForm.notes}
-            onChange={(e) => setConditionForm(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="Condition update notes"
-            rows={3}
-            required
-          />
-
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               onClick={() => {
-                setShowConditionModal(false)
+                setShowEditModal(false)
                 setSelectedAsset(null)
               }}
             >
               Cancel
             </Button>
-            <Button type="submit">
-              Update Condition
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Maintenance Modal */}
-      <Modal
-        isOpen={showMaintenanceModal}
-        onClose={() => {
-          setShowMaintenanceModal(false)
-          setSelectedAsset(null)
-        }}
-        title={`Schedule Maintenance - ${selectedAsset?.name}`}
-        size="md"
-      >
-        <form onSubmit={handleMaintenanceSubmit} className="space-y-4">
-          <Input
-            label="Maintenance Type"
-            type="select"
-            value={maintenanceForm.maintenanceType}
-            onChange={(e) => setMaintenanceForm(prev => ({ ...prev, maintenanceType: e.target.value }))}
-            required
-          >
-            <option value="">Select Type</option>
-            {maintenanceTypes.map(type => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </option>
-            ))}
-          </Input>
-
-          <Input
-            label="Scheduled Date"
-            type="date"
-            value={maintenanceForm.scheduledDate}
-            onChange={(e) => setMaintenanceForm(prev => ({ ...prev, scheduledDate: e.target.value }))}
-            min={new Date().toISOString().split('T')[0]}
-            required
-          />
-
-          <Input
-            label="Priority"
-            type="select"
-            value={maintenanceForm.priority}
-            onChange={(e) => setMaintenanceForm(prev => ({ ...prev, priority: e.target.value }))}
-            required
-          >
-            {priorities.map(priority => (
-              <option key={priority} value={priority}>
-                {priority.charAt(0).toUpperCase() + priority.slice(1)}
-              </option>
-            ))}
-          </Input>
-
-          <Input
-            label="Notes"
-            type="textarea"
-            value={maintenanceForm.notes}
-            onChange={(e) => setMaintenanceForm(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="Maintenance notes"
-            rows={3}
-          />
-
-          <div className="flex justify-end space-x-3 pt-4">
             <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setShowMaintenanceModal(false)
-                setSelectedAsset(null)
-              }}
+              type="submit"
+              className="bg-black text-white hover:bg-gray-800"
             >
-              Cancel
-            </Button>
-            <Button type="submit">
-              Schedule Maintenance
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Adjustment/Write-off Modal */}
-      <Modal
-        isOpen={showAdjustmentModal}
-        onClose={() => {
-          setShowAdjustmentModal(false)
-          setSelectedAsset(null)
-        }}
-        title={`${adjustmentType === 'write-off' ? 'Write-off' : 'Adjust'} Asset - ${selectedAsset?.name}`}
-        size="md"
-      >
-        <form onSubmit={handleAdjustmentSubmit} className="space-y-4">
-          <Input
-            label="Reason"
-            type="text"
-            value={adjustmentForm.reason}
-            onChange={(e) => setAdjustmentForm(prev => ({ ...prev, reason: e.target.value }))}
-            placeholder={`Reason for ${adjustmentType}`}
-            required
-          />
-
-          <Input
-            label="Value"
-            type="number"
-            value={adjustmentForm.value}
-            onChange={(e) => setAdjustmentForm(prev => ({ ...prev, value: e.target.value }))}
-            placeholder="Asset value"
-            min="0"
-            step="0.01"
-          />
-
-          <Input
-            label="Notes"
-            type="textarea"
-            value={adjustmentForm.notes}
-            onChange={(e) => setAdjustmentForm(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder={`${adjustmentType} notes`}
-            rows={3}
-          />
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setShowAdjustmentModal(false)
-                setSelectedAsset(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">
-              {adjustmentType === 'write-off' ? 'Write-off Asset' : 'Adjust Asset'}
+              Save Changes
             </Button>
           </div>
         </form>

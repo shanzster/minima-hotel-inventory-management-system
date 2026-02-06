@@ -15,20 +15,23 @@ export function useAuth() {
   useEffect(() => {
     // Check for existing user on mount
     let currentUser = getCurrentUser()
-    
-    // Commented out auto-login for proper authentication flow
-    // For development: auto-login as inventory controller if no user exists
-    // if (!currentUser && process.env.NODE_ENV === 'development') {
-    //   const devUser = {
-    //     id: '1',
-    //     email: 'controller@minima.com',
-    //     name: 'Mark Trinidad',
-    //     role: 'inventory-controller'
-    //   }
-    //   setCurrentUser(devUser)
-    //   currentUser = devUser
-    // }
-    
+
+    // Check if user has manually logged out (don't auto-login)
+    const hasLoggedOut = typeof window !== 'undefined' &&
+                        localStorage.getItem('hasLoggedOut') === 'true'
+
+    // Auto-login as purchasing officer for development (only if not manually logged out)
+    if (!currentUser && !hasLoggedOut && process.env.NODE_ENV === 'development') {
+      const devUser = {
+        id: '3',
+        email: 'purchasing@minima.com',
+        name: 'Mike Purchasing',
+        role: 'purchasing-officer'
+      }
+      setCurrentUser(devUser)
+      currentUser = devUser
+    }
+
     setUser(currentUser)
     setLoading(false)
   }, [])
@@ -36,11 +39,17 @@ export function useAuth() {
   const login = useCallback(async (email, password) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const authenticatedUser = await authenticateUser(email, password)
       setCurrentUser(authenticatedUser)
       setUser(authenticatedUser)
+
+      // Clear the logout flag since user has logged in manually
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('hasLoggedOut')
+      }
+
       return authenticatedUser
     } catch (err) {
       setError(err.message)
@@ -55,9 +64,8 @@ export function useAuth() {
     authLogout()
     setUser(null)
     setError(null)
-    
-    // Optional: Force a page reload to ensure clean state
-    // This helps prevent any lingering state issues
+
+    // Force a page reload to ensure clean state and prevent auto-login
     if (typeof window !== 'undefined') {
       setTimeout(() => {
         window.location.reload()

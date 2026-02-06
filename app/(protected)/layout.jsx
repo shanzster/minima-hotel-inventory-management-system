@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '../../hooks/useAuth'
 import { NavigationProvider } from '../../hooks/useNavigation'
@@ -15,12 +15,27 @@ export default function ProtectedLayout({ children }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
 
+  const handleOpenMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(true)
+    // Trigger animation after mount
+    setTimeout(() => {
+      setIsAnimating(true)
+    }, 10)
+  }, [])
+
+  const handleCloseMobileMenu = useCallback(() => {
+    setIsAnimating(false)
+    setTimeout(() => {
+      setIsMobileMenuOpen(false)
+    }, 300) // Match the animation duration
+  }, [])
+
   // Close mobile menu when route changes
   useEffect(() => {
     if (isMobileMenuOpen) {
       handleCloseMobileMenu()
     }
-  }, [pathname])
+  }, [pathname, isMobileMenuOpen, handleCloseMobileMenu])
 
   // Close mobile menu on window resize to desktop
   useEffect(() => {
@@ -34,21 +49,6 @@ export default function ProtectedLayout({ children }) {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  const handleOpenMobileMenu = () => {
-    setIsMobileMenuOpen(true)
-    // Trigger animation after mount
-    setTimeout(() => {
-      setIsAnimating(true)
-    }, 10)
-  }
-
-  const handleCloseMobileMenu = () => {
-    setIsAnimating(false)
-    setTimeout(() => {
-      setIsMobileMenuOpen(false)
-    }, 300) // Match the animation duration
-  }
 
   useEffect(() => {
     // Only redirect if we're not loading and user is not authenticated

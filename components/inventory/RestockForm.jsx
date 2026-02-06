@@ -127,19 +127,29 @@ export default function RestockForm({
           {getFormTitle()}
         </h3>
         {item && (
-          <p className="text-sm text-gray-500 mt-1">
-            Item: {item.name} (Current Stock: {item.currentStock || 0})
-          </p>
+          <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-700">
+              <span className="font-medium">Item:</span> {item.name}
+            </p>
+            <p className="text-sm text-gray-700">
+              <span className="font-medium">Current Stock:</span> {item.currentStock || 0} {item.unit}
+            </p>
+            {transactionType === 'adjustment' && (
+              <p className="text-xs text-amber-600 mt-2 font-medium">
+                ⚠️ Enter the NEW total quantity (not the change amount)
+              </p>
+            )}
+          </div>
         )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           type="number"
-          label="Quantity"
+          label={transactionType === 'adjustment' ? 'New Total Quantity' : 'Quantity'}
           value={formData.quantity}
           onChange={(value) => handleInputChange('quantity', value)}
-          placeholder="Enter quantity"
+          placeholder={transactionType === 'adjustment' ? 'Enter new total quantity' : 'Enter quantity'}
           required
           error={errors.quantity}
           min="0"
