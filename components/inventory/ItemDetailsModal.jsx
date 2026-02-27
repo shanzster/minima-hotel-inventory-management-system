@@ -7,8 +7,10 @@ import Badge from '../ui/Badge'
 import StockIndicator from './StockIndicator'
 import Modal from '../ui/Modal'
 import inventoryApi from '../../lib/inventoryApi'
+import supplierApi from '../../lib/supplierApi'
 import { INVENTORY_CATEGORIES } from '../../lib/constants'
 import { useAuth } from '../../hooks/useAuth'
+import toast from '../../lib/toast'
 
 export default function ItemDetailsModal({
   isOpen,
@@ -29,6 +31,26 @@ export default function ItemDetailsModal({
   const [editForm, setEditForm] = useState({})
   const [batches, setBatches] = useState([])
   const [isFetchingBatches, setIsFetchingBatches] = useState(false)
+  const [suppliers, setSuppliers] = useState([])
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false)
+
+  // Load suppliers on component mount
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      try {
+        setLoadingSuppliers(true)
+        const suppliersList = await supplierApi.getAll()
+        setSuppliers(suppliersList || [])
+      } catch (error) {
+        console.error('Error loading suppliers:', error)
+        setSuppliers([])
+      } finally {
+        setLoadingSuppliers(false)
+      }
+    }
+
+    loadSuppliers()
+  }, [])
 
   // Initialize edit form when item changes
   useEffect(() => {
@@ -77,7 +99,7 @@ export default function ItemDetailsModal({
 
   const handleStockAdjustment = async () => {
     if (!stockAdjustment.quantity || !stockAdjustment.reason) {
-      alert('Please enter quantity and reason for stock adjustment')
+      toast.warning('Please enter quantity and reason for stock adjustment')
       return
     }
 
@@ -90,12 +112,12 @@ export default function ItemDetailsModal({
         timestamp: new Date().toISOString()
       })
 
-      alert(`Stock adjusted by ${stockAdjustment.quantity > 0 ? '+' : ''}${stockAdjustment.quantity} ${item.unit}`)
+      toast.success(`Stock adjusted by ${stockAdjustment.quantity > 0 ? '+' : ''}${stockAdjustment.quantity} ${item.unit}`)
       setShowStockAdjustment(false)
       setStockAdjustment({ quantity: 0, reason: '', notes: '' })
     } catch (error) {
       console.error('Error adjusting stock:', error)
-      alert('Failed to adjust stock. Please try again.')
+      toast.error('Failed to adjust stock. Please try again.')
     }
   }
 
@@ -110,11 +132,11 @@ export default function ItemDetailsModal({
       }
 
       await onUpdateItem(item.id, updatedData)
-      alert('Item updated successfully!')
+      toast.success('Item updated successfully!')
       setIsEditing(false)
     } catch (error) {
       console.error('Error updating item:', error)
-      alert('Failed to update item. Please try again.')
+      toast.error('Failed to update item. Please try again.')
     }
   }
 
@@ -128,16 +150,17 @@ export default function ItemDetailsModal({
   if (!item) return null
 
   const getStockStatus = (item) => {
-    if (item.currentStock === 0) return { status: 'critical', label: 'Out of Stock' }
-    if (item.currentStock <= item.restockThreshold) return { status: 'low', label: 'Low Stock' }
-    if (item.maxStock && item.currentStock > item.maxStock) return { status: 'excess', label: 'Overstocked' }
+    const stock = item.currentStock || 0
+    if (stock === 0) return { status: 'critical', label: 'Out of Stock' }
+    if (stock <= item.restockThreshold) return { status: 'low', label: 'Low Stock' }
+    if (item.maxStock && stock > item.maxStock) return { status: 'excess', label: 'Overstocked' }
     return { status: 'normal', label: 'In Stock' }
   }
 
   const stockStatus = getStockStatus(item)
-  const categoryOptions = INVENTORY_CATEGORIES.map(cat => ({
-    label: cat.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-    value: cat
+  const categoryOptions = Object.entries(INVENTORY_CATEGORIES).map(([value, label]) => ({
+    label,
+    value
   }))
 
   const unitOptions = [
@@ -159,64 +182,134 @@ export default function ItemDetailsModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`${item.name} - Details`}
-      size="xl"
+      size="2xl"
     >
       <div className="space-y-6">
-        {/* Header with Status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Badge variant={stockStatus.status}>
-              {stockStatus.label}
-            </Badge>
+            {item.type !== 'assigned-asset' && (
+              <Badge variant={stockStatus.status}>
+                {stockStatus.label}
+              </Badge>
+            )}
+            {item.type === 'assigned-asset' && (
+              <Badge variant="normal">
+                Assigned to {item.location}
+              </Badge>
+            )}
             <span className="text-sm text-gray-500">
               ID: {item.id}
             </span>
           </div>
-          {/* Only show action buttons for inventory controllers */}
-          {user?.role === 'inventory-controller' && (
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(!isEditing)}
-                disabled={isLoading}
-              >
-                {isEditing ? 'Cancel Edit' : 'Edit Details'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowStockAdjustment(!showStockAdjustment)}
-                disabled={isLoading}
-              >
-                Adjust Stock
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${item.id}`;
-                  const printWindow = window.open('', '_blank');
-                  printWindow.document.write(`
-                    <html>
-                      <head><title>Print Label - ${item.name}</title></head>
-                      <body style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif;">
-                        <h1 style="margin-bottom:20px;">${item.name}</h1>
-                        <img src="${qrUrl}" alt="QR Code" style="width:200px; height:200px;"/>
-                        <p style="margin-top:20px; font-size:1.2rem;">ID: ${item.id}</p>
-                        <script>window.onload = () => { window.print(); window.close(); }</script>
-                      </body>
-                    </html>
-                  `);
-                  printWindow.document.close();
-                }}
-                disabled={isLoading}
-              >
-                Print QR Label
-              </Button>
-            </div>
-          )}
         </div>
+
+        {/* Stock Adjustment Modal */}
+        {showStockAdjustment && (
+          <Modal
+            isOpen={showStockAdjustment}
+            onClose={() => {
+              setShowStockAdjustment(false)
+              setStockAdjustment({ quantity: 0, reason: '', notes: '' })
+            }}
+            title="Adjust Stock"
+            size="md"
+          >
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Current Stock</p>
+                    <p className="text-2xl font-bold text-gray-900">{item.currentStock || 0} {item.unit}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-700">After Adjustment</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {(item.currentStock || 0) + (stockAdjustment.quantity || 0)} {item.unit}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quantity Change *
+                </label>
+                <input
+                  type="number"
+                  value={stockAdjustment.quantity || ''}
+                  onChange={(e) => setStockAdjustment(prev => ({
+                    ...prev,
+                    quantity: e.target.value === '' ? 0 : parseFloat(e.target.value)
+                  }))}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                  placeholder="e.g., 10 or -5"
+                  step="1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use positive numbers to add stock, negative to remove
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason *
+                </label>
+                <select
+                  value={stockAdjustment.reason}
+                  onChange={(e) => setStockAdjustment(prev => ({
+                    ...prev,
+                    reason: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                >
+                  <option value="">Select reason</option>
+                  <option value="physical-count">Physical Count</option>
+                  <option value="damaged">Damaged/Lost</option>
+                  <option value="expired">Expired</option>
+                  <option value="correction">Correction</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={stockAdjustment.notes}
+                  onChange={(e) => setStockAdjustment(prev => ({
+                    ...prev,
+                    notes: e.target.value
+                  }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                  placeholder="Optional notes about this adjustment"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowStockAdjustment(false)
+                    setStockAdjustment({ quantity: 0, reason: '', notes: '' })
+                  }}
+                  disabled={isLoading}
+                  className="hover:bg-gray-100"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleStockAdjustment}
+                  disabled={isLoading || !stockAdjustment.quantity || !stockAdjustment.reason}
+                  className="bg-black text-white hover:bg-gray-800"
+                >
+                  {isLoading ? 'Adjusting...' : 'Confirm Adjustment'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
 
         {/* Product Image Display */}
         {item.imageUrl && (
@@ -228,84 +321,6 @@ export default function ItemDetailsModal({
                 alt={item.name}
                 className="max-h-48 rounded-lg object-contain"
               />
-            </div>
-          </div>
-        )}
-
-        {/* Stock Adjustment Section */}
-        {showStockAdjustment && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <h3 className="text-lg font-medium text-amber-800 mb-4">Stock Adjustment</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Quantity Change
-                </label>
-                <input
-                  type="number"
-                  value={stockAdjustment.quantity}
-                  onChange={(e) => setStockAdjustment(prev => ({
-                    ...prev,
-                    quantity: parseInt(e.target.value) || 0
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="e.g., +10 or -5"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Current: {item.currentStock} {item.unit}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason *
-                </label>
-                <select
-                  value={stockAdjustment.reason}
-                  onChange={(e) => setStockAdjustment(prev => ({
-                    ...prev,
-                    reason: e.target.value
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="">Select reason</option>
-                  <option value="physical-count">Physical Count</option>
-                  <option value="damaged">Damaged/Lost</option>
-                  <option value="expired">Expired</option>
-                  <option value="correction">Correction</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <input
-                  type="text"
-                  value={stockAdjustment.notes}
-                  onChange={(e) => setStockAdjustment(prev => ({
-                    ...prev,
-                    notes: e.target.value
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="Optional notes"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3 mt-4">
-              <Button
-                variant="ghost"
-                onClick={() => setShowStockAdjustment(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleStockAdjustment}
-                disabled={isLoading || !stockAdjustment.quantity || !stockAdjustment.reason}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
-              >
-                {isLoading ? 'Adjusting...' : 'Adjust Stock'}
-              </Button>
             </div>
           </div>
         )}
@@ -378,42 +393,58 @@ export default function ItemDetailsModal({
 
           {/* Right Column - Stock & Details */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Stock Information</h3>
+            <h3 className="text-lg font-medium text-gray-900">
+              {item.type === 'assigned-asset' ? 'Assignment Information' : 'Stock Information'}
+            </h3>
 
             <div className="grid grid-cols-1 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Current Stock</span>
-                  <StockIndicator
-                    currentStock={item.currentStock}
-                    restockThreshold={item.restockThreshold}
-                    maxStock={item.maxStock}
-                    showLabel={false}
-                  />
+              {item.type !== 'assigned-asset' ? (
+                <>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Current Stock</span>
+                      <StockIndicator
+                        currentStock={item.currentStock || 0}
+                        restockThreshold={item.restockThreshold}
+                        maxStock={item.maxStock}
+                        showLabel={false}
+                      />
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {item.currentStock || 0} {item.unit}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Restock Threshold"
+                      type="number"
+                      value={isEditing ? editForm.restockThreshold : item.restockThreshold}
+                      onChange={(value) => handleEditFormChange('restockThreshold', parseFloat(value) || 0)}
+                      disabled={!isEditing}
+                    />
+
+                    <Input
+                      label="Maximum Stock"
+                      type="number"
+                      value={isEditing ? editForm.maxStock : item.maxStock || ''}
+                      onChange={(value) => handleEditFormChange('maxStock', value)}
+                      disabled={!isEditing}
+                      placeholder="No limit"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-indigo-700">Assignment Status</span>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                  <p className="text-lg font-bold text-indigo-900">
+                    Currently in {item.location}
+                  </p>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {item.currentStock} {item.unit}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Restock Threshold"
-                  type="number"
-                  value={isEditing ? editForm.restockThreshold : item.restockThreshold}
-                  onChange={(value) => handleEditFormChange('restockThreshold', parseFloat(value) || 0)}
-                  disabled={!isEditing}
-                />
-
-                <Input
-                  label="Maximum Stock"
-                  type="number"
-                  value={isEditing ? editForm.maxStock : item.maxStock || ''}
-                  onChange={(value) => handleEditFormChange('maxStock', value)}
-                  disabled={!isEditing}
-                  placeholder="No limit"
-                />
-              </div>
+              )}
 
               <Input
                 label="Location"
@@ -430,12 +461,32 @@ export default function ItemDetailsModal({
           <h3 className="text-lg font-medium text-gray-900">Additional Details</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Input
-              label="Supplier"
-              value={isEditing ? editForm.supplier : item.supplier}
-              onChange={(value) => handleEditFormChange('supplier', value)}
-              disabled={!isEditing}
-            />
+            {isEditing ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Supplier
+                </label>
+                <select
+                  value={editForm.supplier}
+                  onChange={(e) => handleEditFormChange('supplier', e.target.value)}
+                  disabled={loadingSuppliers}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20 disabled:bg-gray-100"
+                >
+                  <option value="">{loadingSuppliers ? 'Loading suppliers...' : 'Select Supplier'}</option>
+                  {suppliers.map(supplier => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <Input
+                label="Supplier"
+                value={item.supplier ? suppliers.find(s => s.id === item.supplier)?.name || item.supplier : '-'}
+                disabled
+              />
+            )}
 
             <Input
               label="Cost per Unit (₱)"
@@ -559,6 +610,30 @@ export default function ItemDetailsModal({
             >
               {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
+          </div>
+        )}
+
+        {/* Action Buttons - Bottom */}
+        {user?.role === 'inventory-controller' && !isEditing && (
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <Button
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+              disabled={isLoading}
+              className="bg-black text-white hover:bg-gray-800"
+            >
+              Edit Details
+            </Button>
+            {item.type !== 'assigned-asset' && (
+              <Button
+                size="sm"
+                onClick={() => setShowStockAdjustment(!showStockAdjustment)}
+                disabled={isLoading}
+                className="bg-black text-white hover:bg-gray-800"
+              >
+                Adjust Stock
+              </Button>
+            )}
           </div>
         )}
       </div>

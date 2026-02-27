@@ -5,15 +5,14 @@ import InventoryTable from './InventoryTable'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import AlertBanner from './AlertBanner'
-import { mockTransactions, mockInventoryItems } from '../../lib/mockData'
+import inventoryApi from '../../lib/inventoryApi'
 
-export default function TransactionManager({ 
-  selectedItem = null, 
-  onClose = () => {},
-  onTransactionComplete = () => {} 
+export default function TransactionManager({
+  selectedItem = null,
+  onClose = () => { },
+  onTransactionComplete = () => { }
 }) {
-  const { user } = useAuth()
-  const [transactions, setTransactions] = useState(mockTransactions)
+  const [transactions, setTransactions] = useState([])
   const [showTransactionForm, setShowTransactionForm] = useState(false)
   const [transactionType, setTransactionType] = useState('stock-in')
   const [currentItem, setCurrentItem] = useState(selectedItem)
@@ -22,7 +21,19 @@ export default function TransactionManager({
 
   useEffect(() => {
     setCurrentItem(selectedItem)
+    if (selectedItem?.id) {
+      loadTransactions(selectedItem.id)
+    }
   }, [selectedItem])
+
+  const loadTransactions = async (itemId) => {
+    try {
+      const data = await inventoryApi.getTransactions(itemId)
+      setTransactions(data)
+    } catch (error) {
+      console.error('Error loading transactions:', error)
+    }
+  }
 
   // Mock suppliers for the form
   const suppliers = [
@@ -106,7 +117,7 @@ export default function TransactionManager({
 
   const calculateNewStock = (transactionData) => {
     const previousStock = currentItem?.currentStock || 0
-    
+
     switch (transactionData.type) {
       case 'stock-in':
         return previousStock + transactionData.quantity
@@ -150,10 +161,10 @@ export default function TransactionManager({
       setAlerts(prev => [...prev, {
         type: 'critical-stock',
         message: 'Critical stock level reached',
-        items: [{ 
-          name: currentItem.name, 
-          id: currentItem.id, 
-          currentStock: newStock 
+        items: [{
+          name: currentItem.name,
+          id: currentItem.id,
+          currentStock: newStock
         }]
       }])
     }
@@ -162,10 +173,10 @@ export default function TransactionManager({
       setAlerts(prev => [...prev, {
         type: 'low-stock',
         message: 'Low stock level detected',
-        items: [{ 
-          name: currentItem.name, 
-          id: currentItem.id, 
-          currentStock: newStock 
+        items: [{
+          name: currentItem.name,
+          id: currentItem.id,
+          currentStock: newStock
         }]
       }])
     }
@@ -174,10 +185,10 @@ export default function TransactionManager({
       setAlerts(prev => [...prev, {
         type: 'excess-stock',
         message: 'Excess stock level detected',
-        items: [{ 
-          name: currentItem.name, 
-          id: currentItem.id, 
-          currentStock: newStock 
+        items: [{
+          name: currentItem.name,
+          id: currentItem.id,
+          currentStock: newStock
         }]
       }])
     }
@@ -193,8 +204,8 @@ export default function TransactionManager({
       return
     }
 
-    setTransactions(prev => prev.map(txn => 
-      txn.id === transactionId 
+    setTransactions(prev => prev.map(txn =>
+      txn.id === transactionId
         ? { ...txn, approved: true, approvedBy: user.id, approvedAt: new Date() }
         : txn
     ))

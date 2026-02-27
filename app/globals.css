@@ -1,5 +1,5 @@
 /* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Roboto:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   /* Colors */
@@ -16,8 +16,8 @@
   --accent-sand: #E6E1DA;
   
   /* Typography */
-  --font-heading: 'Poppins', system-ui, sans-serif;
-  --font-body: 'Roboto', system-ui, sans-serif;
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 
 /* Reset */
@@ -87,4 +87,38 @@ input:focus, textarea:focus {
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    margin: 0.5in;
+    size: letter;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  body {
+    background: white;
+  }
+  
+  .page-break {
+    page-break-after: always;
+  }
+  
+  /* Ensure tables don't break across pages */
+  table {
+    page-break-inside: avoid;
+  }
+  
+  /* Prevent orphaned rows */
+  tr {
+    page-break-inside: avoid;
+  }
 }

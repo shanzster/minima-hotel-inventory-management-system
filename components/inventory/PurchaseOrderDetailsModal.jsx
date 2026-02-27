@@ -8,6 +8,7 @@ import EmailPurchaseOrderModal from './EmailPurchaseOrderModal'
 import ReceivePOModal from './ReceivePOModal'
 import { formatCurrency } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
+import toast from '../../lib/toast'
 
 export default function PurchaseOrderDetailsModal({
   isOpen,
@@ -131,83 +132,6 @@ export default function PurchaseOrderDetailsModal({
             )}
           </div>
         </div>
-
-        {/* Simple Approve/Reject Buttons */}
-        {isInventoryController && order.status === 'pending' && (
-          <div className="flex items-center justify-center space-x-4 py-6 border-t border-gray-200">
-            <button
-              onClick={async () => {
-                try {
-                  const statusUpdate = {
-                    status: 'approved',
-                    statusHistory: [
-                      ...(order.statusHistory || []),
-                      {
-                        status: 'approved',
-                        reason: 'Order approved for procurement',
-                        changedBy: 'inventory-controller-001',
-                        changedAt: new Date().toISOString()
-                      }
-                    ],
-                    approvedAt: new Date().toISOString(),
-                    approvedBy: 'inventory-controller-001',
-                    updatedAt: new Date().toISOString()
-                  }
-
-                  await onUpdateStatus(order.id, statusUpdate)
-                  alert(`✅ Order Approved!\n\nOrder ${order.orderNumber} has been approved successfully.`)
-
-                } catch (error) {
-                  console.error('Error approving order:', error)
-                  alert('❌ Failed to approve order. Please try again.')
-                }
-              }}
-              disabled={isLoading}
-              className="inline-flex items-center px-8 py-3 text-base font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Approve
-            </button>
-
-            <button
-              onClick={async () => {
-                try {
-                  const statusUpdate = {
-                    status: 'rejected',
-                    statusHistory: [
-                      ...(order.statusHistory || []),
-                      {
-                        status: 'rejected',
-                        reason: 'Order rejected by inventory controller',
-                        changedBy: 'inventory-controller-001',
-                        changedAt: new Date().toISOString()
-                      }
-                    ],
-                    rejectedAt: new Date().toISOString(),
-                    rejectedBy: 'inventory-controller-001',
-                    updatedAt: new Date().toISOString()
-                  }
-
-                  await onUpdateStatus(order.id, statusUpdate)
-                  alert(`❌ Order Rejected!\n\nOrder ${order.orderNumber} has been rejected.`)
-
-                } catch (error) {
-                  console.error('Error rejecting order:', error)
-                  alert('❌ Failed to reject order. Please try again.')
-                }
-              }}
-              disabled={isLoading}
-              className="inline-flex items-center px-8 py-3 text-base font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Reject
-            </button>
-          </div>
-        )}
 
         {/* Order Information */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -370,6 +294,85 @@ export default function PurchaseOrderDetailsModal({
             </div>
           </div>
         </div>
+
+        {/* Approve/Reject Buttons at Bottom Right */}
+        {isInventoryController && order.status === 'pending' && (
+          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+            <button
+              onClick={async () => {
+                try {
+                  const statusUpdate = {
+                    status: 'rejected',
+                    statusHistory: [
+                      ...(order.statusHistory || []),
+                      {
+                        status: 'rejected',
+                        reason: 'Order rejected by inventory controller',
+                        changedBy: 'inventory-controller-001',
+                        changedAt: new Date().toISOString()
+                      }
+                    ],
+                    rejectedAt: new Date().toISOString(),
+                    rejectedBy: 'inventory-controller-001',
+                    updatedAt: new Date().toISOString()
+                  }
+
+                  await onUpdateStatus(order.id, statusUpdate)
+                  toast.success(`Order ${order.orderNumber} has been rejected.`)
+                  onClose()
+
+                } catch (error) {
+                  console.error('Error rejecting order:', error)
+                  toast.error('Failed to reject order. Please try again.')
+                }
+              }}
+              disabled={isLoading}
+              className="inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Reject
+            </button>
+
+            <button
+              onClick={async () => {
+                try {
+                  const statusUpdate = {
+                    status: 'approved',
+                    statusHistory: [
+                      ...(order.statusHistory || []),
+                      {
+                        status: 'approved',
+                        reason: 'Order approved for procurement',
+                        changedBy: 'inventory-controller-001',
+                        changedAt: new Date().toISOString()
+                      }
+                    ],
+                    approvedAt: new Date().toISOString(),
+                    approvedBy: 'inventory-controller-001',
+                    updatedAt: new Date().toISOString()
+                  }
+
+                  await onUpdateStatus(order.id, statusUpdate)
+                  toast.success(`Order ${order.orderNumber} has been approved successfully.`)
+                  onClose()
+
+                } catch (error) {
+                  console.error('Error approving order:', error)
+                  toast.error('Failed to approve order. Please try again.')
+                }
+              }}
+              disabled={isLoading}
+              className="inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Approve
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Email Purchase Order Modal */}

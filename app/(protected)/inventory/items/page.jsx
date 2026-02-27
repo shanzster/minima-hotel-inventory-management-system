@@ -9,6 +9,7 @@ import AddItemForm from '../../../../components/inventory/AddItemForm'
 import ItemDetailsModal from '../../../../components/inventory/ItemDetailsModal'
 import Badge from '../../../../components/ui/Badge'
 import inventoryApi from '../../../../lib/inventoryApi'
+import supplierApi from '../../../../lib/supplierApi'
 import { INVENTORY_CATEGORIES } from '../../../../lib/constants'
 
 export default function ItemsPage() {
@@ -26,6 +27,7 @@ export default function ItemsPage() {
   const [selectedItem, setSelectedItem] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
+  const [suppliers, setSuppliers] = useState([])
   const pageSize = 25
 
   // Set page title
@@ -33,29 +35,66 @@ export default function ItemsPage() {
     setTitle('Items Master List')
   }, [setTitle])
 
-  // Load all items
+  // Load all items and suppliers
   useEffect(() => {
-    const loadItems = async () => {
+    const loadData = async () => {
       try {
         setIsLoading(true)
-        const allItems = await inventoryApi.getAll()
-        setItems(allItems)
+        const [allItems, allSuppliers] = await Promise.all([
+          inventoryApi.getAll(),
+          supplierApi.getAll()
+        ])
+        // Filter out asset instances - only show master items
+        const masterItems = allItems.filter(item => item.type !== 'asset-instance')
+        setItems(masterItems)
+        setSuppliers(allSuppliers)
       } catch (error) {
-        console.error('Error loading items:', error)
+        console.error('Error loading data:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadItems()
+    loadData()
 
-    // Set up real-time listener
+    // Set up real-time listeners
     const unsubscribe = inventoryApi.onInventoryChange((updatedItems) => {
-      setItems(updatedItems)
+      // Filter out asset instances
+      const masterItems = updatedItems.filter(item => item.type !== 'asset-instance')
+      setItems(masterItems)
     })
 
     return unsubscribe
   }, [])
+
+  // Set up supplier listener to keep suppliers in sync
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      try {
+        const allSuppliers = await supplierApi.getAll()
+        setSuppliers(allSuppliers)
+      } catch (error) {
+        console.error('Error loading suppliers:', error)
+      }
+    }
+
+    loadSuppliers()
+
+    // Refresh suppliers periodically in case they change
+    const interval = setInterval(loadSuppliers, 30000) // Refresh every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Helper function to get supplier name from ID or display as-is if not found
+  const getSupplierName = (supplierId) => {
+    if (!supplierId) return '-'
+    // Try to find supplier by ID
+    const supplier = suppliers.find(s => s.id === supplierId)
+    if (supplier) return supplier.name
+    // If not found in suppliers list, return the value as-is (it might be a manually entered name)
+    return supplierId
+  }
 
   // Calculate summary metrics
   const totalItems = items.length
@@ -111,7 +150,7 @@ export default function ItemsPage() {
 
     setFilteredItems(filtered)
     setCurrentPage(1)
-  }, [items, searchQuery, categoryFilter, sortBy, sortDirection])
+  }, [items, searchQuery, categoryFilter, typeFilter, sortBy, sortDirection])
 
   // Get paginated data
   const getPaginatedData = () => {
@@ -162,6 +201,48 @@ export default function ItemsPage() {
     }
   }
 
+  // Handle stock adjustment
+  const handleUpdateStock = async (itemId, quantityChange, metadata) => {
+    try {
+      // Get current item
+      const currentItem = items.find(item => item.id === itemId)
+      if (!currentItem) {
+        throw new Error('Item not found')
+      }
+
+      // Ensure numbers are properly parsed, default to 0 if currentStock is missing
+      const currentStock = parseFloat(currentItem.currentStock) || 0
+      const change = parseFloat(quantityChange) || 0
+      const newStock = currentStock + change
+
+      // Validate the new stock value
+      if (isNaN(newStock)) {
+        throw new Error('Invalid stock calculation')
+      }
+
+      // Prevent negative stock
+      if (newStock < 0) {
+        throw new Error('Stock cannot be negative')
+      }
+
+      // Update item with new stock
+      await inventoryApi.update(itemId, {
+        currentStock: newStock,
+        lastStockAdjustment: {
+          ...metadata,
+          previousStock: currentStock,
+          newStock: newStock,
+          change: change
+        }
+      })
+
+      // Modal will close automatically on success
+    } catch (error) {
+      console.error('Error updating stock:', error)
+      throw error
+    }
+  }
+
   // Export to CSV
   const exportToCSV = () => {
     const headers = ['Name', 'SKU', 'Category', 'Unit', 'Description', 'Supplier']
@@ -172,7 +253,7 @@ export default function ItemsPage() {
         item.category,
         item.unit,
         item.description || '-',
-        item.supplier || '-'
+        getSupplierName(item.supplier)
       ]
     })
 
@@ -440,7 +521,7 @@ export default function ItemsPage() {
       key: 'supplier',
       label: 'Supplier',
       sortable: true,
-      render: (value) => value || '-'
+      render: (value) => getSupplierName(value)
     },
     {
       key: 'isActive',
@@ -482,15 +563,15 @@ export default function ItemsPage() {
           </div>
 
           {/* Add Item Button */}
-          <Button
+          <button
             onClick={() => setShowAddItemModal(true)}
-            className="bg-black text-white hover:bg-gray-800"
+            className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
           >
-            <svg className="w-4 h-4 mr-2 text-white inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             Add New Item
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -578,7 +659,7 @@ export default function ItemsPage() {
                   placeholder="Search items..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 hover:border-gray-400 hover:shadow-md"
                 />
               </div>
             </div>
@@ -588,9 +669,9 @@ export default function ItemsPage() {
               {/* Filter Button */}
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
@@ -599,9 +680,9 @@ export default function ItemsPage() {
               {/* Print Button */}
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
@@ -610,7 +691,7 @@ export default function ItemsPage() {
               {/* Export to CSV Button */}
               <button
                 onClick={exportToCSV}
-                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all backdrop-blur-sm"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
                 <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -642,7 +723,7 @@ export default function ItemsPage() {
         isOpen={showAddItemModal}
         onClose={() => setShowAddItemModal(false)}
         title="Add New Item"
-        size="lg"
+        size="2xl"
       >
         <AddItemForm
           onSubmit={handleAddItem}
@@ -659,7 +740,8 @@ export default function ItemsPage() {
             setSelectedItem(null)
           }}
           item={selectedItem}
-          onUpdate={handleUpdateItem}
+          onUpdateItem={handleUpdateItem}
+          onUpdateStock={handleUpdateStock}
         />
       )}
 
@@ -741,23 +823,23 @@ export default function ItemsPage() {
 
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              variant="ghost"
+            <button
               onClick={() => {
                 setCategoryFilter('')
                 setTypeFilter('')
                 setSortBy('name')
                 setSortDirection('asc')
               }}
+              className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
             >
               Clear Filters
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => setShowFilterModal(false)}
-              className="bg-black text-white hover:bg-gray-800"
+              className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
             >
               Apply Filters
-            </Button>
+            </button>
           </div>
         </div>
       </Modal>

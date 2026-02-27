@@ -10,19 +10,22 @@ import RestockForm from '../../../components/inventory/RestockForm'
 import AddItemForm from '../../../components/inventory/AddItemForm'
 import ItemDetailsModal from '../../../components/inventory/ItemDetailsModal'
 import { usePageTitle } from '../../../hooks/usePageTitle'
+import { useAuth } from '../../../hooks/useAuth'
 import inventoryApi from '../../../lib/inventoryApi'
 import { INVENTORY_CATEGORIES } from '../../../lib/constants'
+import toast from '../../../lib/toast'
 
 // Debug helper to check if using Firebase
 const isUsingFirebase = () => {
   return typeof window !== 'undefined' &&
-         console.log &&
-         console.log.toString().includes('Firebase Status: Connected')
+    console.log &&
+    console.log.toString().includes('Firebase Status: Connected')
 }
 
 export default function InventoryPage() {
   const router = useRouter()
   const { setTitle } = usePageTitle()
+  const { user, hasRole } = useAuth()
   const [inventoryItems, setInventoryItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -42,16 +45,19 @@ export default function InventoryPage() {
   const [isUpdatingItem, setIsUpdatingItem] = useState(false)
   const [isUsingFirebase, setIsUsingFirebase] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
-  
+
+  // Check if user is kitchen staff
+  const isKitchenStaff = hasRole && hasRole('kitchen')
+
   // Export to CSV function
   const exportToCSV = () => {
     const headers = ['Item Name', 'Category', 'Current Stock', 'Unit', 'Stock Status', 'Location', 'Expiry Date']
     const csvData = filteredItems.map(item => {
       const stockStatus = getStockStatus(item)
       const statusText = stockStatus === 'critical' ? 'Critical' :
-                        stockStatus === 'low' ? 'Low Stock' :
-                        stockStatus === 'excess' ? 'Excess' : 'Normal'
-      
+        stockStatus === 'low' ? 'Low Stock' :
+          stockStatus === 'excess' ? 'Excess' : 'Normal'
+
       return [
         item.name,
         item.category.replace('-', ' '),
@@ -62,11 +68,11 @@ export default function InventoryPage() {
         item.expirationDate ? new Date(item.expirationDate).toLocaleDateString() : '-'
       ]
     })
-    
+
     const csvContent = [headers, ...csvData]
       .map(row => row.map(field => `"${field}"`).join(','))
       .join('\n')
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -77,24 +83,24 @@ export default function InventoryPage() {
     link.click()
     document.body.removeChild(link)
   }
-  
+
   // Print function
   const handlePrint = () => {
     // Create a new window for printing
     const printWindow = window.open('', '_blank')
-    
+
     // Get current date and time
     const now = new Date()
-    const generatedDate = now.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const generatedDate = now.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     })
-    const generatedTime = now.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    const generatedTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
     })
-    
+
     // Calculate summary statistics
     const totalItems = filteredItems.length
     const criticalItems = filteredItems.filter(item => getStockStatus(item) === 'critical').length
@@ -109,7 +115,7 @@ export default function InventoryPage() {
       const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       return expiryDate >= new Date() && expiryDate <= sevenDaysFromNow
     }).length
-    
+
     // Get active filters
     const activeFilters = []
     if (searchQuery) activeFilters.push(`Search: "${searchQuery}"`)
@@ -119,7 +125,7 @@ export default function InventoryPage() {
     if (sortBy !== 'name' || sortDirection !== 'asc') {
       activeFilters.push(`Sort: ${sortBy} (${sortDirection})`)
     }
-    
+
     // Generate print HTML
     const printHTML = `
       <!DOCTYPE html>
@@ -375,24 +381,24 @@ export default function InventoryPage() {
               </thead>
               <tbody>
                 ${filteredItems.map(item => {
-                  const stockStatus = getStockStatus(item)
-                  const statusText = stockStatus === 'critical' ? 'Critical' :
-                                   stockStatus === 'low' ? 'Low Stock' :
-                                   stockStatus === 'excess' ? 'Excess' : 'Normal'
-                  const statusClass = `status-${stockStatus}`
-                  
-                  const expiryDate = item.expirationDate ? new Date(item.expirationDate) : null
-                  const expiryText = expiryDate ? expiryDate.toLocaleDateString() : '-'
-                  
-                  let expiryClass = ''
-                  if (expiryDate) {
-                    const now = new Date()
-                    const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24))
-                    if (daysUntilExpiry <= 0) expiryClass = 'status-critical'
-                    else if (daysUntilExpiry <= 7) expiryClass = 'status-low'
-                  }
-                  
-                  return `
+      const stockStatus = getStockStatus(item)
+      const statusText = stockStatus === 'critical' ? 'Critical' :
+        stockStatus === 'low' ? 'Low Stock' :
+          stockStatus === 'excess' ? 'Excess' : 'Normal'
+      const statusClass = `status-${stockStatus}`
+
+      const expiryDate = item.expirationDate ? new Date(item.expirationDate) : null
+      const expiryText = expiryDate ? expiryDate.toLocaleDateString() : '-'
+
+      let expiryClass = ''
+      if (expiryDate) {
+        const now = new Date()
+        const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24))
+        if (daysUntilExpiry <= 0) expiryClass = 'status-critical'
+        else if (daysUntilExpiry <= 7) expiryClass = 'status-low'
+      }
+
+      return `
                     <tr>
                       <td><strong>${item.name}</strong></td>
                       <td><span class="category-badge">${item.category.replace('-', ' ')}</span></td>
@@ -402,7 +408,7 @@ export default function InventoryPage() {
                       <td><span class="${expiryClass}">${expiryText}</span></td>
                     </tr>
                   `
-                }).join('')}
+    }).join('')}
               </tbody>
             </table>
           </div>
@@ -415,11 +421,11 @@ export default function InventoryPage() {
         </body>
       </html>
     `
-    
+
     // Write content and print
     printWindow.document.write(printHTML)
     printWindow.document.close()
-    
+
     // Wait for content to load then print
     printWindow.onload = () => {
       setTimeout(() => {
@@ -441,7 +447,16 @@ export default function InventoryPage() {
       try {
         setIsLoading(true)
         const items = await inventoryApi.getAll()
-        setInventoryItems(items)
+        let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+        
+        // Filter to only Kitchen Storage items for kitchen staff
+        if (isKitchenStaff) {
+          nonAssignedItems = nonAssignedItems.filter(item => 
+            item.location === 'Kitchen Storage' || item.location === 'Kitchen'
+          )
+        }
+        
+        setInventoryItems(nonAssignedItems)
 
         // Check if we're using Firebase by trying to access it
         try {
@@ -462,40 +477,41 @@ export default function InventoryPage() {
 
     // Set up real-time listener if using Firebase
     const unsubscribe = inventoryApi.onInventoryChange((items) => {
-      setInventoryItems(items)
+      const nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+      setInventoryItems(nonAssignedItems)
     })
 
     return unsubscribe
   }, [])
-  
 
-  
+
+
   // Handle card clicks - simple one-way filtering
   const handleAllItemsClick = () => {
     setStatusFilter('')
     setExpiryFilter('')
   }
-  
+
   const handleCriticalClick = () => {
     setExpiryFilter('')
     setStatusFilter('critical')
   }
-  
+
   const handleExpiredClick = () => {
     setStatusFilter('')
     setExpiryFilter('expired')
   }
-  
+
   const handleExpiringSoonClick = () => {
     setStatusFilter('')
     setExpiryFilter('expiring-soon')
   }
-  
+
   const handleLowStockClick = () => {
     setExpiryFilter('')
     setStatusFilter('low')
   }
-  
+
   // Get unique locations for filter
   const locations = [...new Set(inventoryItems.map(item => item.location))].sort()
 
@@ -534,11 +550,11 @@ export default function InventoryPage() {
   }, [inventoryItems])
 
   const { lowStockItems, criticalStockItems, expiringItems, expiredItems } = alerts
-  
+
   // Apply filters and search
   useEffect(() => {
     let filtered = [...inventoryItems]
-    
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -549,12 +565,12 @@ export default function InventoryPage() {
         item.location.toLowerCase().includes(query)
       )
     }
-    
+
     // Category filter
     if (categoryFilter) {
       filtered = filtered.filter(item => item.category === categoryFilter)
     }
-    
+
     // Status filter (from alert cards)
     if (statusFilter) {
       filtered = filtered.filter(item => {
@@ -562,19 +578,19 @@ export default function InventoryPage() {
         return status === statusFilter
       })
     }
-    
+
     // Expiry filter
     if (expiryFilter) {
       const now = new Date()
       const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-      
+
       filtered = filtered.filter(item => {
         if (!item.expirationDate && expiryFilter === 'no-expiration') return true
         if (!item.expirationDate) return false
-        
+
         const expiryDate = new Date(item.expirationDate)
-        
+
         switch (expiryFilter) {
           case 'expired':
             return expiryDate < now
@@ -589,45 +605,45 @@ export default function InventoryPage() {
         }
       })
     }
-    
+
     // Sort
     filtered.sort((a, b) => {
       let aValue = a[sortBy]
       let bValue = b[sortBy]
-      
+
       // Handle special sorting cases
       if (sortBy === 'expirationDate') {
         aValue = a.expirationDate ? new Date(a.expirationDate) : new Date('9999-12-31')
         bValue = b.expirationDate ? new Date(b.expirationDate) : new Date('9999-12-31')
       }
-      
+
       if (sortBy === 'createdAt') {
         // Mock created dates for sorting
         aValue = new Date(2024, 0, Math.floor(Math.random() * 30) + 1)
         bValue = new Date(2024, 0, Math.floor(Math.random() * 30) + 1)
       }
-      
+
       if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase()
         bValue = bValue.toLowerCase()
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
-    
+
     setFilteredItems(filtered)
     setCurrentPage(1) // Reset to page 1 when filters change
   }, [inventoryItems, searchQuery, categoryFilter, statusFilter, expiryFilter, sortBy, sortDirection])
-  
+
   // Get paginated data
   const getPaginatedData = () => {
     const startIndex = (currentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
     return filteredItems.slice(startIndex, endIndex)
   }
-  
+
   // Get pagination info
   const getPaginationInfo = () => {
     return {
@@ -636,19 +652,19 @@ export default function InventoryPage() {
       total: filteredItems.length
     }
   }
-  
+
   // Handle page change
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
   }
-  
+
   const getStockStatus = (item) => {
     if (item.currentStock === 0) return 'critical'
     if (item.currentStock <= item.restockThreshold) return 'low'
     if (item.maxStock && item.currentStock > item.maxStock) return 'excess'
     return 'normal'
   }
-  
+
   const handleSort = (column) => {
     if (sortBy === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
@@ -657,23 +673,23 @@ export default function InventoryPage() {
       setSortDirection('asc')
     }
   }
-  
+
   const handleRowClick = (item) => {
     setSelectedItem(item)
     setShowItemDetailsModal(true)
   }
-  
+
   const handleRestockClick = (item, type) => {
     setSelectedItem(item)
     setRestockType(type)
     setShowRestockModal(true)
   }
-  
+
   const handleRestockSubmit = async (transactionData) => {
     try {
       if (selectedItem) {
         let quantityChange
-        
+
         if (restockType === 'adjustment') {
           // For adjustments, calculate the difference between new quantity and current stock
           // The form should ask for the NEW total quantity, not the change
@@ -682,17 +698,30 @@ export default function InventoryPage() {
           // For stock-in and stock-out, use the quantity as a change
           quantityChange = restockType === 'stock-in' ? transactionData.quantity : -transactionData.quantity
         }
-        
+
         await inventoryApi.updateStock(selectedItem.id, quantityChange, transactionData)
+
+        const actionText = restockType === 'stock-in' ? 'Stock In' :
+          restockType === 'stock-out' ? 'Stock Out' :
+            'Stock Adjustment'
+        toast.success(`${actionText} transaction recorded successfully`)
+
+        // Refresh the inventory data
+        const items = await inventoryApi.getAll()
+        let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
         
-        const actionText = restockType === 'stock-in' ? 'Stock In' : 
-                          restockType === 'stock-out' ? 'Stock Out' : 
-                          'Stock Adjustment'
-        alert(`${actionText} transaction recorded successfully`)
+        // Filter to only Kitchen Storage items for kitchen staff
+        if (isKitchenStaff) {
+          nonAssignedItems = nonAssignedItems.filter(item => 
+            item.location === 'Kitchen Storage' || item.location === 'Kitchen'
+          )
+        }
+        
+        setInventoryItems(nonAssignedItems)
       }
     } catch (error) {
       console.error('Error processing restock transaction:', error)
-      alert('Failed to process transaction. Please try again.')
+      toast.error('Failed to process transaction. Please try again.')
     }
     setShowRestockModal(false)
     setSelectedItem(null)
@@ -703,10 +732,23 @@ export default function InventoryPage() {
       setIsAddingItem(true)
       await inventoryApi.create(itemData)
       setShowAddItemModal(false)
-      alert('Item added successfully!')
+      toast.success('Item added successfully!')
+
+      // Refresh the inventory data
+      const items = await inventoryApi.getAll()
+      let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+      
+      // Filter to only Kitchen Storage items for kitchen staff
+      if (isKitchenStaff) {
+        nonAssignedItems = nonAssignedItems.filter(item => 
+          item.location === 'Kitchen Storage' || item.location === 'Kitchen'
+        )
+      }
+      
+      setInventoryItems(nonAssignedItems)
     } catch (error) {
       console.error('Error adding item:', error)
-      alert('Failed to add item. Please try again.')
+      toast.error('Failed to add item. Please try again.')
     } finally {
       setIsAddingItem(false)
     }
@@ -715,12 +757,29 @@ export default function InventoryPage() {
   const handleUpdateStock = async (itemId, quantityChange, transactionData) => {
     try {
       await inventoryApi.updateStock(itemId, quantityChange, transactionData)
-      alert(`Stock updated successfully!`)
+      toast.success('Stock updated successfully!')
+
       // Refresh the inventory data
       const items = await inventoryApi.getAll()
-      setInventoryItems(items)
+      let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+      
+      // Filter to only Kitchen Storage items for kitchen staff
+      if (isKitchenStaff) {
+        nonAssignedItems = nonAssignedItems.filter(item => 
+          item.location === 'Kitchen Storage' || item.location === 'Kitchen'
+        )
+      }
+      
+      setInventoryItems(nonAssignedItems)
+
+      // Update the selected item to show new stock in modal
+      const updatedItem = nonAssignedItems.find(item => item.id === itemId)
+      if (updatedItem) {
+        setSelectedItem(updatedItem)
+      }
     } catch (error) {
       console.error('Error updating stock:', error)
+      toast.error('Failed to update stock. Please try again.')
       throw error
     }
   }
@@ -729,26 +788,33 @@ export default function InventoryPage() {
     try {
       setIsUpdatingItem(true)
       await inventoryApi.update(itemId, itemData)
-      alert('Item updated successfully!')
-      setShowItemDetailsModal(false)
+      toast.success('Item updated successfully!')
+
       // Refresh the inventory data
       const items = await inventoryApi.getAll()
       setInventoryItems(items)
+
+      // Update the selected item to show new data in modal
+      const updatedItem = items.find(item => item.id === itemId)
+      if (updatedItem) {
+        setSelectedItem(updatedItem)
+      }
     } catch (error) {
       console.error('Error updating item:', error)
+      toast.error('Failed to update item. Please try again.')
       throw error
     } finally {
       setIsUpdatingItem(false)
     }
   }
-  
+
   const columns = [
     { key: 'name', label: 'Item Name', sortable: true },
     { key: 'category', label: 'Category', sortable: true, render: (value) => value.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { 
-      key: 'currentStock', 
-      label: 'Current Stock', 
-      sortable: true, 
+    {
+      key: 'currentStock',
+      label: 'Current Stock',
+      sortable: true,
       render: (value, item) => {
         // Ensure we're displaying the numeric value with unit
         const stock = typeof value === 'number' ? value : (parseFloat(value) || 0)
@@ -759,9 +825,9 @@ export default function InventoryPage() {
     { key: 'stockLevel', label: 'Stock Status', sortable: false },
     { key: 'location', label: 'Location', sortable: true },
     { key: 'expirationDate', label: 'Expiry Date', sortable: true },
-    { 
-      key: 'actions', 
-      label: 'Actions', 
+    {
+      key: 'actions',
+      label: 'Actions',
       sortable: false,
       render: (value, item) => (
         <div className="flex space-x-2">
@@ -812,7 +878,7 @@ export default function InventoryPage() {
       )
     }
   ]
-  
+
   return (
     <div className="p-4 mx-2">
       {/* Page Header */}
@@ -835,20 +901,19 @@ export default function InventoryPage() {
 
         </div>
       </div>
-      
+
       {/* Alert Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {/* All Items Card */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            !statusFilter && !expiryFilter ? 'border-slate-700 bg-slate-50/80' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${!statusFilter && !expiryFilter ? 'border-slate-700 bg-slate-50/80' : 'border-white/20'
+            }`}
           onClick={handleAllItemsClick}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M9 21V9l3-2 3 2v12" />
                 </svg>
               </div>
@@ -862,29 +927,26 @@ export default function InventoryPage() {
           </div>
           <p className="text-xs text-gray-500">Complete inventory</p>
         </div>
-        
+
         {/* Critical Stock Card - RED (Critical) */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            statusFilter === 'critical' ? 'border-red-800 bg-red-50/80' :
-            criticalStockItems.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'critical' ? 'border-red-800 bg-red-50/80' :
+              criticalStockItems.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
+            }`}
           onClick={handleCriticalClick}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
               <div>
-                <h3 className={`font-heading font-medium text-sm ${
-                  criticalStockItems.length > 0 ? 'text-red-700' : 'text-gray-600'
-                }`}>Critical Stock</h3>
-                <p className={`text-2xl font-heading font-bold ${
-                  criticalStockItems.length > 0 ? 'text-red-600' : 'text-gray-700'
-                }`}>
+                <h3 className={`font-heading font-medium text-sm ${criticalStockItems.length > 0 ? 'text-red-700' : 'text-gray-600'
+                  }`}>Critical Stock</h3>
+                <p className={`text-2xl font-heading font-bold ${criticalStockItems.length > 0 ? 'text-red-600' : 'text-gray-700'
+                  }`}>
                   {criticalStockItems.length}
                 </p>
               </div>
@@ -899,29 +961,26 @@ export default function InventoryPage() {
             }
           </p>
         </div>
-        
+
         {/* Expired Items Card - RED (Critical) */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            expiryFilter === 'expired' ? 'border-red-800 bg-red-50/80' :
-            expiredItems.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${expiryFilter === 'expired' ? 'border-red-800 bg-red-50/80' :
+              expiredItems.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
+            }`}
           onClick={handleExpiredClick}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 4v10a2 2 0 002 2h4a2 2 0 002-2V11M8 7h8m-8 0H6a2 2 0 00-2 2v10a2 2 0 002 2h2M16 7h2a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
                 </svg>
               </div>
               <div>
-                <h3 className={`font-heading font-medium text-sm ${
-                  expiredItems.length > 0 ? 'text-red-700' : 'text-gray-600'
-                }`}>Expired Items</h3>
-                <p className={`text-2xl font-heading font-bold ${
-                  expiredItems.length > 0 ? 'text-red-600' : 'text-gray-700'
-                }`}>
+                <h3 className={`font-heading font-medium text-sm ${expiredItems.length > 0 ? 'text-red-700' : 'text-gray-600'
+                  }`}>Expired Items</h3>
+                <p className={`text-2xl font-heading font-bold ${expiredItems.length > 0 ? 'text-red-600' : 'text-gray-700'
+                  }`}>
                   {expiredItems.length}
                 </p>
               </div>
@@ -936,29 +995,26 @@ export default function InventoryPage() {
             }
           </p>
         </div>
-        
+
         {/* Expiring Soon Card - ORANGE (Expiring) */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            expiryFilter === 'expiring-soon' ? 'border-orange-800 bg-orange-50/80' :
-            expiringItems.length > 0 ? 'border-orange-200 bg-orange-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${expiryFilter === 'expiring-soon' ? 'border-orange-800 bg-orange-50/80' :
+              expiringItems.length > 0 ? 'border-orange-200 bg-orange-50/50' : 'border-white/20'
+            }`}
           onClick={handleExpiringSoonClick}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <h3 className={`font-heading font-medium text-sm ${
-                  expiringItems.length > 0 ? 'text-orange-700' : 'text-gray-600'
-                }`}>Expiring Soon</h3>
-                <p className={`text-2xl font-heading font-bold ${
-                  expiringItems.length > 0 ? 'text-orange-600' : 'text-gray-700'
-                }`}>
+                <h3 className={`font-heading font-medium text-sm ${expiringItems.length > 0 ? 'text-orange-700' : 'text-gray-600'
+                  }`}>Expiring Soon</h3>
+                <p className={`text-2xl font-heading font-bold ${expiringItems.length > 0 ? 'text-orange-600' : 'text-gray-700'
+                  }`}>
                   {expiringItems.length}
                 </p>
               </div>
@@ -973,29 +1029,26 @@ export default function InventoryPage() {
             }
           </p>
         </div>
-        
+
         {/* Low Stock Card - AMBER (Warning) */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            statusFilter === 'low' ? 'border-amber-700 bg-amber-50/80' :
-            lowStockItems.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'low' ? 'border-amber-700 bg-amber-50/80' :
+              lowStockItems.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
+            }`}
           onClick={handleLowStockClick}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
                 </svg>
               </div>
               <div>
-                <h3 className={`font-heading font-medium text-sm ${
-                  lowStockItems.length > 0 ? 'text-amber-700' : 'text-gray-600'
-                }`}>Low Stock</h3>
-                <p className={`text-2xl font-heading font-bold ${
-                  lowStockItems.length > 0 ? 'text-amber-600' : 'text-gray-700'
-                }`}>
+                <h3 className={`font-heading font-medium text-sm ${lowStockItems.length > 0 ? 'text-amber-700' : 'text-gray-600'
+                  }`}>Low Stock</h3>
+                <p className={`text-2xl font-heading font-bold ${lowStockItems.length > 0 ? 'text-amber-600' : 'text-gray-700'
+                  }`}>
                   {lowStockItems.length}
                 </p>
               </div>
@@ -1011,7 +1064,7 @@ export default function InventoryPage() {
           </p>
         </div>
       </div>
-      
+
       {/* Inventory Table with FilterBar */}
       <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-lg shadow-xl">
         <div className="border-b border-white/20 px-4 py-3">
@@ -1022,7 +1075,7 @@ export default function InventoryPage() {
             </span>
           </h3>
         </div>
-        
+
         {/* Search Bar and Action Buttons Row */}
         <div className="border-b border-white/20 p-4">
           <div className="flex items-center justify-between">
@@ -1030,7 +1083,7 @@ export default function InventoryPage() {
             <div className="flex-1 max-w-md">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -1039,39 +1092,39 @@ export default function InventoryPage() {
                   placeholder="Search inventory items..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 hover:border-gray-400 hover:shadow-md"
                 />
               </div>
             </div>
-            
+
             {/* Action Buttons */}
             <div className="flex items-center space-x-3 ml-4">
               {/* Filter Button */}
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
               </button>
-              
+
               {/* Print Button */}
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
               </button>
-              
+
               {/* Export to CSV Button */}
               <button
                 onClick={exportToCSV}
-                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all backdrop-blur-sm"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
                 <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1081,7 +1134,7 @@ export default function InventoryPage() {
             </div>
           </div>
         </div>
-        
+
         {/* Enhanced Inventory Table */}
         <div className="p-4">
           {getPaginatedData().length === 0 ? (
@@ -1101,7 +1154,7 @@ export default function InventoryPage() {
                   {/* Table Header */}
                   <thead>
                     <tr className="border-b border-white/20">
-                      <th 
+                      <th
                         className="text-left py-3 px-4 font-heading font-medium text-sm text-gray-600 cursor-pointer hover:text-gray-900 transition-colors"
                         onClick={() => handleSort('name')}
                       >
@@ -1114,7 +1167,7 @@ export default function InventoryPage() {
                           )}
                         </div>
                       </th>
-                      <th 
+                      <th
                         className="text-left py-3 px-4 font-heading font-medium text-sm text-gray-600 cursor-pointer hover:text-gray-900 transition-colors"
                         onClick={() => handleSort('category')}
                       >
@@ -1127,7 +1180,7 @@ export default function InventoryPage() {
                           )}
                         </div>
                       </th>
-                      <th 
+                      <th
                         className="text-left py-3 px-4 font-heading font-medium text-sm text-gray-600 cursor-pointer hover:text-gray-900 transition-colors"
                         onClick={() => handleSort('currentStock')}
                       >
@@ -1146,7 +1199,7 @@ export default function InventoryPage() {
                       <th className="text-left py-3 px-4 font-heading font-medium text-sm text-gray-600">
                         Location
                       </th>
-                      <th 
+                      <th
                         className="text-left py-3 px-4 font-heading font-medium text-sm text-gray-600 cursor-pointer hover:text-gray-900 transition-colors"
                         onClick={() => handleSort('expirationDate')}
                       >
@@ -1164,7 +1217,7 @@ export default function InventoryPage() {
                       </th>
                     </tr>
                   </thead>
-                  
+
                   {/* Table Body */}
                   <tbody>
                     {getPaginatedData().map((item, index) => {
@@ -1172,7 +1225,7 @@ export default function InventoryPage() {
                       const expiryDate = item.expirationDate ? new Date(item.expirationDate) : null
                       const now = new Date()
                       const daysUntilExpiry = expiryDate ? Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24)) : null
-                      
+
                       return (
                         <tr
                           key={item.id}
@@ -1182,11 +1235,10 @@ export default function InventoryPage() {
                           {/* Item Name */}
                           <td className="py-4 px-4">
                             <div className="flex items-center space-x-3">
-                              <div className={`w-3 h-3 rounded-full ${
-                                stockStatus === 'critical' ? 'bg-red-500' :
-                                stockStatus === 'low' ? 'bg-amber-500' :
-                                stockStatus === 'excess' ? 'bg-blue-500' : 'bg-green-500'
-                              }`}></div>
+                              <div className={`w-3 h-3 rounded-full ${stockStatus === 'critical' ? 'bg-red-500' :
+                                  stockStatus === 'low' ? 'bg-amber-500' :
+                                    stockStatus === 'excess' ? 'bg-blue-500' : 'bg-green-500'
+                                }`}></div>
                               <div>
                                 <p className="font-heading font-medium text-gray-900">{item.name}</p>
                                 {item.description && (
@@ -1195,46 +1247,43 @@ export default function InventoryPage() {
                               </div>
                             </div>
                           </td>
-                          
+
                           {/* Category */}
                           <td className="py-4 px-4">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 capitalize">
                               {item.category.replace('-', ' ')}
                             </span>
                           </td>
-                          
+
                           {/* Current Stock */}
                           <td className="py-4 px-4">
                             <div className="text-right">
-                              <p className={`font-heading font-bold text-lg ${
-                                stockStatus === 'critical' ? 'text-red-600' :
-                                stockStatus === 'low' ? 'text-amber-600' : 'text-gray-900'
-                              }`}>
+                              <p className={`font-heading font-bold text-lg ${stockStatus === 'critical' ? 'text-red-600' :
+                                  stockStatus === 'low' ? 'text-amber-600' : 'text-gray-900'
+                                }`}>
                                 {item.currentStock}
                               </p>
                               <p className="text-xs text-gray-500">{item.unit}</p>
                             </div>
                           </td>
-                          
+
                           {/* Stock Status */}
                           <td className="py-4 px-4">
-                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              stockStatus === 'critical' ? 'bg-red-100 text-red-800' :
-                              stockStatus === 'low' ? 'bg-amber-100 text-amber-800' :
-                              stockStatus === 'excess' ? 'bg-blue-100 text-blue-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              <div className={`w-2 h-2 rounded-full mr-1 ${
-                                stockStatus === 'critical' ? 'bg-red-500' :
-                                stockStatus === 'low' ? 'bg-amber-500' :
-                                stockStatus === 'excess' ? 'bg-blue-500' : 'bg-green-500'
-                              }`}></div>
+                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${stockStatus === 'critical' ? 'bg-red-100 text-red-800' :
+                                stockStatus === 'low' ? 'bg-amber-100 text-amber-800' :
+                                  stockStatus === 'excess' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-green-100 text-green-800'
+                              }`}>
+                              <div className={`w-2 h-2 rounded-full mr-1 ${stockStatus === 'critical' ? 'bg-red-500' :
+                                  stockStatus === 'low' ? 'bg-amber-500' :
+                                    stockStatus === 'excess' ? 'bg-blue-500' : 'bg-green-500'
+                                }`}></div>
                               {stockStatus === 'critical' ? 'Critical' :
-                               stockStatus === 'low' ? 'Low Stock' :
-                               stockStatus === 'excess' ? 'Excess' : 'Normal'}
+                                stockStatus === 'low' ? 'Low Stock' :
+                                  stockStatus === 'excess' ? 'Excess' : 'Normal'}
                             </div>
                           </td>
-                          
+
                           {/* Location */}
                           <td className="py-4 px-4">
                             <div className="flex items-center space-x-1">
@@ -1245,16 +1294,15 @@ export default function InventoryPage() {
                               <span className="text-sm text-gray-700">{item.location}</span>
                             </div>
                           </td>
-                          
+
                           {/* Expiry Date */}
                           <td className="py-4 px-4">
                             {expiryDate ? (
                               <div>
-                                <p className={`text-sm font-medium ${
-                                  daysUntilExpiry <= 0 ? 'text-red-600' :
-                                  daysUntilExpiry <= 7 ? 'text-orange-600' :
-                                  daysUntilExpiry <= 30 ? 'text-yellow-600' : 'text-gray-700'
-                                }`}>
+                                <p className={`text-sm font-medium ${daysUntilExpiry <= 0 ? 'text-red-600' :
+                                    daysUntilExpiry <= 7 ? 'text-orange-600' :
+                                      daysUntilExpiry <= 30 ? 'text-yellow-600' : 'text-gray-700'
+                                  }`}>
                                   {expiryDate.toLocaleDateString()}
                                 </p>
                                 {daysUntilExpiry <= 30 && (
@@ -1267,7 +1315,7 @@ export default function InventoryPage() {
                               <span className="text-sm text-gray-400">-</span>
                             )}
                           </td>
-                          
+
                           {/* Actions - View Only for Purchasing Officers */}
                           <td className="py-4 px-4">
                             <button
@@ -1323,7 +1371,7 @@ export default function InventoryPage() {
           )}
         </div>
       </div>
-      
+
       {/* Add Item Modal */}
       <Modal
         isOpen={showAddItemModal}
@@ -1421,9 +1469,9 @@ export default function InventoryPage() {
                   className="w-full appearance-none bg-white border-2 border-gray-300 rounded-lg px-4 py-3 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-black focus:border-black cursor-pointer transition-all shadow-sm hover:border-gray-400"
                 >
                   <option value="">All Categories</option>
-                  {INVENTORY_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1).replace('-', ' ')}
+                  {Object.entries(INVENTORY_CATEGORIES).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
                     </option>
                   ))}
                 </select>
@@ -1434,7 +1482,7 @@ export default function InventoryPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Stock Status Filter */}
             <div className="space-y-2">
               <label className="flex items-center space-x-2 text-sm font-heading font-medium text-gray-700">
@@ -1462,7 +1510,7 @@ export default function InventoryPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Expiry Filter */}
             <div className="space-y-2">
               <label className="flex items-center space-x-2 text-sm font-heading font-medium text-gray-700">
@@ -1490,7 +1538,7 @@ export default function InventoryPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Sort Options */}
             <div className="space-y-2">
               <label className="flex items-center space-x-2 text-sm font-heading font-medium text-gray-700">

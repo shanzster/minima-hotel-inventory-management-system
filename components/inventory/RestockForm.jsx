@@ -2,10 +2,10 @@ import { useState } from 'react'
 import Input from '../ui/Input'
 import Button from '../ui/Button'
 
-export default function RestockForm({ 
-  item, 
-  transactionType = 'stock-in', 
-  onSubmit, 
+export default function RestockForm({
+  item,
+  transactionType = 'stock-in',
+  onSubmit,
   onCancel,
   suppliers = [],
   className = ''
@@ -18,15 +18,15 @@ export default function RestockForm({
     expirationDate: '',
     destination: ''
   })
-  
+
   const [errors, setErrors] = useState({})
-  
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }))
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
@@ -35,20 +35,20 @@ export default function RestockForm({
       }))
     }
   }
-  
+
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (!formData.quantity || formData.quantity <= 0) {
       newErrors.quantity = 'Quantity must be greater than 0'
     }
-    
+
     if (transactionType === 'stock-in') {
       if (!formData.supplier) {
         newErrors.supplier = 'Supplier is required for stock-in transactions'
       }
     }
-    
+
     if (transactionType === 'stock-out') {
       if (!formData.reason) {
         newErrors.reason = 'Reason is required for stock-out transactions'
@@ -57,24 +57,24 @@ export default function RestockForm({
         newErrors.destination = 'Destination is required for stock-out transactions'
       }
     }
-    
+
     if (transactionType === 'adjustment') {
       if (!formData.reason) {
         newErrors.reason = 'Reason is required for adjustments'
       }
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
-  
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
-    
+
     const transaction = {
       itemId: item?.id,
       itemName: item?.name,
@@ -87,10 +87,10 @@ export default function RestockForm({
       destination: formData.destination,
       timestamp: new Date().toISOString()
     }
-    
+
     onSubmit(transaction)
   }
-  
+
   const getFormTitle = () => {
     switch (transactionType) {
       case 'stock-in': return 'Stock In Transaction'
@@ -99,7 +99,7 @@ export default function RestockForm({
       default: return 'Stock Transaction'
     }
   }
-  
+
   const reasonOptions = {
     'stock-out': [
       { label: 'Guest Usage', value: 'guest-usage' },
@@ -119,7 +119,7 @@ export default function RestockForm({
       { label: 'Other', value: 'other' }
     ]
   }
-  
+
   return (
     <form onSubmit={handleSubmit} className={`restock-form space-y-4 ${className}`}>
       <div className="form-header mb-6">
@@ -142,20 +142,50 @@ export default function RestockForm({
           </div>
         )}
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          type="number"
-          label={transactionType === 'adjustment' ? 'New Total Quantity' : 'Quantity'}
-          value={formData.quantity}
-          onChange={(value) => handleInputChange('quantity', value)}
-          placeholder={transactionType === 'adjustment' ? 'Enter new total quantity' : 'Enter quantity'}
-          required
-          error={errors.quantity}
-          min="0"
-          step="1"
-        />
-        
+        <div className="md:col-span-2">
+          <label className="block text-sm font-body text-black mb-1">
+            {transactionType === 'adjustment' ? 'New Total Quantity' : 'Quantity'}
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => {
+                const current = parseFloat(formData.quantity) || 0
+                if (current > 0) handleInputChange('quantity', (current - 1).toString())
+              }}
+              className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-100 border border-gray-300 rounded-lg text-2xl font-bold text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+            >
+              −
+            </button>
+            <div className="flex-1">
+              <Input
+                type="number"
+                value={formData.quantity}
+                onChange={(value) => handleInputChange('quantity', value)}
+                placeholder={transactionType === 'adjustment' ? 'Enter new total quantity' : 'Enter quantity'}
+                required
+                error={errors.quantity}
+                min="0"
+                step="1"
+                className="text-center text-lg font-bold h-12"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const current = parseFloat(formData.quantity) || 0
+                handleInputChange('quantity', (current + 1).toString())
+              }}
+              className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-100 border border-gray-300 rounded-lg text-2xl font-bold text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
         {transactionType === 'stock-in' && (
           <>
             <Input
@@ -168,7 +198,7 @@ export default function RestockForm({
               required
               error={errors.supplier}
             />
-            
+
             <Input
               type="text"
               label="Batch Number"
@@ -176,7 +206,7 @@ export default function RestockForm({
               onChange={(value) => handleInputChange('batchNumber', value)}
               placeholder="Enter batch number"
             />
-            
+
             <Input
               type="date"
               label="Expiration Date"
@@ -185,7 +215,7 @@ export default function RestockForm({
             />
           </>
         )}
-        
+
         {(transactionType === 'stock-out' || transactionType === 'adjustment') && (
           <Input
             type="select"
@@ -198,7 +228,7 @@ export default function RestockForm({
             error={errors.reason}
           />
         )}
-        
+
         {transactionType === 'stock-out' && (
           <Input
             type="text"
@@ -211,7 +241,7 @@ export default function RestockForm({
           />
         )}
       </div>
-      
+
       <div className="form-actions flex justify-end space-x-3 pt-4 border-t border-gray-300">
         <Button
           type="button"
@@ -224,9 +254,9 @@ export default function RestockForm({
           type="submit"
           variant="primary"
         >
-          {transactionType === 'stock-in' ? 'Add Stock' : 
-           transactionType === 'stock-out' ? 'Remove Stock' : 
-           'Adjust Stock'}
+          {transactionType === 'stock-in' ? 'Add Stock' :
+            transactionType === 'stock-out' ? 'Remove Stock' :
+              'Adjust Stock'}
         </Button>
       </div>
     </form>

@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import Button from '../ui/Button'
 
-export default function Header({ isMobileMenuOpen, isAnimating, onOpenMobileMenu }) {
+export default function Header() {
   const { title } = usePageTitle()
   const { user, logout } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -43,23 +43,8 @@ export default function Header({ isMobileMenuOpen, isAnimating, onOpenMobileMenu
   return (
     <header className="bg-white/80 backdrop-blur-xl border-b border-white/20 px-4 sm:px-6 fixed top-0 left-0 right-0 lg:relative lg:left-auto z-20 h-16 flex items-center shadow-xl">
       <div className="flex items-center justify-between w-full">
-        {/* Left - Mobile Menu Button */}
-        <div className="flex items-center space-x-4">
-          {/* Mobile Menu Button */}
-          {!isAnimating && (
-            <button
-              onClick={onOpenMobileMenu}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-800 hover:bg-white/20 rounded-lg backdrop-blur-sm transition-all duration-200"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          )}
-        </div>
-
         {/* Right - Actions & User Profile */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 ml-auto">
 
           {/* User Profile Dropdown */}
           <div className="relative">

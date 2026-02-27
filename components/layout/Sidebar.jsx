@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '../../hooks/useAuth'
 
-export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMenu }) {
+export default function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
@@ -27,7 +27,7 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
 
     if (user) {
       loadPendingCount()
-      
+
       // Set up real-time listener for purchase orders
       const setupListener = async () => {
         try {
@@ -41,9 +41,9 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
           console.error('Error setting up purchase orders listener:', error)
         }
       }
-      
+
       const listenerPromise = setupListener()
-      
+
       return () => {
         listenerPromise.then(unsubscribe => {
           if (unsubscribe) unsubscribe()
@@ -51,11 +51,11 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
       }
     }
   }, [user])
-  
+
   // Filter navigation categories based on user role
   const getFilteredCategories = () => {
     if (!user) return navigationCategories
-    
+
     return navigationCategories.map(category => ({
       ...category,
       items: category.items.filter(item => {
@@ -137,6 +137,17 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
           badge: null
         },
         {
+          name: 'Bundles',
+          href: '/inventory/bundles',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M9 21V9l3-2 3 2v12" />
+            </svg>
+          ),
+          roles: ['inventory-controller'],
+          badge: null
+        },
+        {
           name: 'Budget Management',
           href: '/inventory/budget',
           icon: (
@@ -203,6 +214,17 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
       ),
       items: [
         {
+          name: 'Housekeeping',
+          href: '/housekeeping',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+          ),
+          roles: ['inventory-controller', 'kitchen-staff'],
+          badge: null
+        },
+        {
           name: 'Menu Management',
           href: '/menu',
           icon: (
@@ -222,17 +244,6 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
             </svg>
           ),
           roles: ['inventory-controller'],
-          badge: { text: '2', color: 'bg-orange-500' }
-        },
-        {
-          name: 'Reports',
-          href: '/reports',
-          icon: (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          ),
-          roles: ['inventory-controller'],
           badge: null
         }
       ]
@@ -240,17 +251,6 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
   ]
 
   const supportItems = [
-    {
-      name: 'Settings',
-      href: '/settings',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-      roles: ['inventory-controller']
-    },
     {
       name: 'Help & Support',
       href: '/help',
@@ -265,11 +265,11 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
   // Filter support items based on user role
   const getFilteredSupportItems = () => {
     if (!user) return supportItems
-    
+
     return supportItems.filter(item => {
       // If no roles specified, show to everyone
       if (!item.roles) return true
-      
+
       // Check if user's role is in the allowed roles
       return item.roles.includes(user.role)
     })
@@ -277,21 +277,18 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
 
   const handleNavigation = (href) => {
     router.push(href)
-    if (isMobileMenuOpen) {
-      onCloseMobileMenu()
-    }
   }
 
   const isActive = (href) => {
     // Exact match first
     if (pathname === href) return true
-    
+
     // For sub-routes, only match if it's a direct child, not a deeper nested route
     // This prevents /inventory from matching /inventory/transactions or /inventory/assets
     if (href === '/inventory') {
       return pathname === '/inventory'
     }
-    
+
     // For other routes, allow sub-routes
     return pathname.startsWith(href + '/')
   }
@@ -302,9 +299,9 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
       <div className="h-16 px-6 border-b border-white/10 flex items-center justify-start bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 bg-gradient-to-br from-gray-900 to-black rounded-lg flex items-center justify-center shadow-lg overflow-hidden">
-            <img 
-              src="/icons/images/logo.png" 
-              alt="Minima Hotel Logo" 
+            <img
+              src="/icons/images/logo.png"
+              alt="Minima Hotel Logo"
               className="w-7 h-7 object-contain"
             />
           </div>
@@ -327,28 +324,26 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
                   <span>{category.name}</span>
                 </div>
               </div>
-              
+
               {/* Category Items - Always visible */}
               <div className="space-y-1">
                 {category.items.map((item) => (
                   <button
                     key={item.name}
                     onClick={() => handleNavigation(item.href)}
-                    className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group text-left ${
-                      isActive(item.href)
-                        ? 'bg-blue-500/20 text-blue-700 border border-blue-200/50 shadow-sm backdrop-blur-sm'
-                        : 'text-gray-700 hover:bg-white/20 hover:text-gray-900 backdrop-blur-sm'
-                    }`}
+                    className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group text-left ${isActive(item.href)
+                      ? 'bg-blue-500/20 text-blue-700 border border-blue-200/50 shadow-sm backdrop-blur-sm'
+                      : 'text-gray-700 hover:bg-white/20 hover:text-gray-900 backdrop-blur-sm'
+                      }`}
                   >
                     <div className="flex items-center space-x-3 text-left">
-                      <div className={`${
-                        isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                      }`}>
+                      <div className={`${isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                        }`}>
                         {item.icon}
                       </div>
                       <span>{item.name}</span>
                     </div>
-                    
+
                     {item.badge && (
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${item.badge.color} backdrop-blur-sm`}>
                         {item.badge.text}
@@ -371,15 +366,13 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
               <button
                 key={item.name}
                 onClick={() => handleNavigation(item.href)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group text-left ${
-                  isActive(item.href)
-                    ? 'bg-blue-500/20 text-blue-700 border border-blue-200/50 shadow-sm backdrop-blur-sm'
-                    : 'text-gray-700 hover:bg-white/20 hover:text-gray-900 backdrop-blur-sm'
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group text-left ${isActive(item.href)
+                  ? 'bg-blue-500/20 text-blue-700 border border-blue-200/50 shadow-sm backdrop-blur-sm'
+                  : 'text-gray-700 hover:bg-white/20 hover:text-gray-900 backdrop-blur-sm'
+                  }`}
               >
-                <div className={`${
-                  isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                }`}>
+                <div className={`${isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                  }`}>
                   {item.icon}
                 </div>
                 <span>{item.name}</span>
@@ -397,38 +390,6 @@ export default function Sidebar({ isMobileMenuOpen, isAnimating, onCloseMobileMe
       <div className="hidden lg:flex w-64 bg-white/80 backdrop-blur-xl border-r border-white/20 h-screen flex-col fixed left-0 top-0 z-30 shadow-xl">
         <SidebarContent />
       </div>
-
-      {/* Mobile & Tablet Sidebar Overlay */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 flex">
-          {/* Backdrop */}
-          <div 
-            className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out ${
-              isAnimating ? 'opacity-100' : 'opacity-0'
-            }`}
-            onClick={onCloseMobileMenu}
-          />
-          
-          {/* Sidebar */}
-          <div className={`relative flex flex-col w-64 bg-white/90 backdrop-blur-xl border-r border-white/20 h-full transform transition-transform duration-300 ease-out shadow-2xl ${
-            isAnimating ? 'translate-x-0' : '-translate-x-full'
-          }`}>
-            {/* Close Button */}
-            <div className="absolute top-0 right-0 h-16 flex items-center pr-4 z-10">
-              <button
-                onClick={onCloseMobileMenu}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/20 rounded-lg backdrop-blur-sm transition-all duration-200 flex items-center justify-center"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <SidebarContent />
-          </div>
-        </div>
-      )}
     </>
   )
 }

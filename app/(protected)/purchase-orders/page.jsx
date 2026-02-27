@@ -14,6 +14,7 @@ import ReceivePOModal from '../../../components/inventory/ReceivePOModal'
 import { formatCurrency } from '../../../lib/utils'
 import purchaseOrderApi from '../../../lib/purchaseOrderApi'
 import inventoryApi from '../../../lib/inventoryApi'
+import budgetApi from '../../../lib/budgetApi'
 import { useAuth } from '../../../hooks/useAuth'
 
 export default function PurchaseOrdersPage() {
@@ -42,6 +43,8 @@ export default function PurchaseOrdersPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [showReceiveModal, setShowReceiveModal] = useState(false)
   const [orderToReceive, setOrderToReceive] = useState(null)
+  const [currentBudget, setCurrentBudget] = useState(null)
+  const [monthlySpending, setMonthlySpending] = useState(0)
 
   // Export to CSV function
   const exportToCSV = () => {
@@ -429,6 +432,33 @@ export default function PurchaseOrdersPage() {
     }
 
     loadData()
+
+    // Load budget for current month
+    const loadBudgetStatus = async () => {
+      try {
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = now.getMonth() + 1
+
+        const budget = await budgetApi.getBudgetByMonth(year, month)
+        setCurrentBudget(budget)
+
+        // Calculate spending for current month from POs
+        const orders = await purchaseOrderApi.getAll()
+        const currentMonthSpending = orders.reduce((total, order) => {
+          const orderDate = new Date(order.createdAt)
+          if (orderDate.getFullYear() === year && (orderDate.getMonth() + 1) === month) {
+            return total + (order.totalAmount || 0)
+          }
+          return total
+        }, 0)
+        setMonthlySpending(currentMonthSpending)
+      } catch (error) {
+        console.error('Error loading budget status:', error)
+      }
+    }
+
+    loadBudgetStatus()
 
     // Set up real-time listener for purchase orders
     const unsubscribe = purchaseOrderApi.onPurchaseOrdersChange((orders) => {
@@ -828,7 +858,7 @@ export default function PurchaseOrdersPage() {
             {isPurchasingOfficer && (
               <Button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-black text-white hover:bg-gray-800 backdrop-blur-sm whitespace-nowrap px-8"
+                className="bg-black text-white hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out backdrop-blur-sm whitespace-nowrap px-8"
               >
                 Create Purchase Order
               </Button>
@@ -847,7 +877,7 @@ export default function PurchaseOrdersPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center shadow-sm">
                 <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -860,7 +890,7 @@ export default function PurchaseOrdersPage() {
               </div>
             </div>
           </div>
-          <p className="text-xs text-gray-500">Total orders</p>
+          <p className="text-xs text-gray-500">Total purchase orders</p>
         </div>
 
         {/* Pending Orders Card */}
@@ -872,7 +902,8 @@ export default function PurchaseOrdersPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm ${pendingOrders.length > 0 ? 'bg-gradient-to-br from-amber-100 to-amber-200' : 'bg-gradient-to-br from-gray-100 to-gray-200'
+                }`}>
                 <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -901,7 +932,8 @@ export default function PurchaseOrdersPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm ${approvedOrders.length > 0 ? 'bg-gradient-to-br from-green-100 to-green-200' : 'bg-gradient-to-br from-gray-100 to-gray-200'
+                }`}>
                 <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -917,7 +949,7 @@ export default function PurchaseOrdersPage() {
             </div>
           </div>
           <p className="text-xs text-gray-500">
-            {approvedOrders.length > 0 ? 'Ready for delivery' : 'No approved orders'}
+            {approvedOrders.length > 0 ? 'Ready to send' : 'No approved orders'}
           </p>
         </div>
 
@@ -930,9 +962,10 @@ export default function PurchaseOrdersPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm ${inTransitOrders.length > 0 ? 'bg-gradient-to-br from-blue-100 to-blue-200' : 'bg-gradient-to-br from-gray-100 to-gray-200'
+                }`}>
                 <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                 </svg>
               </div>
               <div>
@@ -959,7 +992,8 @@ export default function PurchaseOrdersPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm ${deliveredOrders.length > 0 ? 'bg-gradient-to-br from-green-100 to-green-200' : 'bg-gradient-to-br from-gray-100 to-gray-200'
+                }`}>
                 <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -977,6 +1011,55 @@ export default function PurchaseOrdersPage() {
           <p className="text-xs text-gray-500">
             {deliveredOrders.length > 0 ? 'Completed orders' : 'No delivered orders'}
           </p>
+        </div>
+
+        {/* Monthly Budget Card (Read-only) */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-lg border border-white/20 p-4 shadow-xl lg:col-span-1">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-heading font-medium text-sm text-gray-600">Monthly Budget</h3>
+                <p className="text-xl font-heading font-bold text-black font-mono">
+                  {currentBudget ? formatCurrency(currentBudget.amount) : 'Not set'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {currentBudget && currentBudget.amount > 0 && (
+            <div className="mt-2">
+              <div className="flex justify-between text-[10px] mb-1">
+                <span className="text-gray-500 font-bold uppercase tracking-tighter">Utilization</span>
+                <span className={`font-bold ${(monthlySpending / currentBudget.amount) > 1 ? 'text-red-500' :
+                  (monthlySpending / currentBudget.amount) > 0.8 ? 'text-amber-500' : 'text-green-500'
+                  }`}>
+                  {Math.round((monthlySpending / currentBudget.amount) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${(monthlySpending / currentBudget.amount) > 1 ? 'bg-red-500 animate-pulse' :
+                    (monthlySpending / currentBudget.amount) > 0.8 ? 'bg-amber-500' : 'bg-green-500'
+                    }`}
+                  style={{ width: `${Math.min((monthlySpending / currentBudget.amount) * 100, 100)}%` }}
+                ></div>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 italic flex justify-between">
+                <span>Spent: {formatCurrency(monthlySpending)}</span>
+                <span>Left: {formatCurrency(Math.max(0, currentBudget.amount - monthlySpending))}</span>
+              </p>
+            </div>
+          )}
+          {!currentBudget && (
+            <div className="mt-4 p-2 bg-gray-50 rounded text-[10px] text-gray-400 text-center uppercase tracking-widest font-bold">
+              Budget not configured
+            </div>
+          )}
         </div>
       </div>
 
@@ -1007,7 +1090,7 @@ export default function PurchaseOrdersPage() {
                   placeholder="Search purchase orders..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 hover:border-gray-400 hover:shadow-md"
                 />
               </div>
             </div>
@@ -1017,9 +1100,9 @@ export default function PurchaseOrdersPage() {
               {/* Filter Button */}
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
@@ -1028,9 +1111,9 @@ export default function PurchaseOrdersPage() {
               {/* Print Button */}
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
@@ -1039,7 +1122,7 @@ export default function PurchaseOrdersPage() {
               {/* Export to CSV Button */}
               <button
                 onClick={exportToCSV}
-                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all backdrop-blur-sm"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
                 <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1537,7 +1620,7 @@ export default function PurchaseOrdersPage() {
               </button>
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="px-6 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-all shadow-sm backdrop-blur-sm"
+                className="px-6 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out shadow-sm backdrop-blur-sm"
               >
                 <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

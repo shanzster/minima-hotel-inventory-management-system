@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import toast from '../../../lib/toast'
 import { usePageTitle } from '../../../hooks/usePageTitle'
 import InventoryTable from '../../../components/inventory/InventoryTable'
 import FilterBar from '../../../components/inventory/FilterBar'
@@ -321,7 +322,7 @@ export default function MenuManagementPage() {
       ))
     } catch (error) {
       console.error('Error updating menu item availability:', error)
-      alert('Failed to update menu item. Please try again.')
+      toast.error('Failed to update menu item. Please try again.')
     }
   }
 
@@ -330,10 +331,10 @@ export default function MenuManagementPage() {
     try {
       await menuApi.create(menuItemData)
       setShowAddMenuItemModal(false)
-      alert('Menu item created successfully!')
+      toast.success('Menu item created successfully!')
     } catch (error) {
       console.error('Error creating menu item:', error)
-      alert('Failed to create menu item. Please try again.')
+      toast.error('Failed to create menu item. Please try again.')
     }
   }
 
@@ -341,7 +342,7 @@ export default function MenuManagementPage() {
   const handleUpdateMenuItemAvailability = async (itemId, isAvailable) => {
     try {
       await menuApi.updateAvailability(itemId, isAvailable)
-      alert(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`)
+      toast.success(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`)
 
       // Update local state
       setMenuItems(prev => prev.map(item =>
@@ -349,7 +350,7 @@ export default function MenuManagementPage() {
       ))
     } catch (error) {
       console.error('Error updating menu item availability:', error)
-      alert('Failed to update menu item. Please try again.')
+      toast.error('Failed to update menu item. Please try again.')
     }
   }
 
@@ -357,7 +358,7 @@ export default function MenuManagementPage() {
   const handleUpdateMenuItem = async (itemId, itemData) => {
     try {
       await menuApi.update(itemId, itemData)
-      alert('Menu item updated successfully!')
+      toast.success('Menu item updated successfully!')
       setShowMenuItemDetailsModal(false)
       setSelectedMenuItem(null)
 
@@ -367,7 +368,7 @@ export default function MenuManagementPage() {
       ))
     } catch (error) {
       console.error('Error updating menu item:', error)
-      alert('Failed to update menu item. Please try again.')
+      toast.error('Failed to update menu item. Please try again.')
     }
   }
 
@@ -397,14 +398,14 @@ export default function MenuManagementPage() {
       render: (value, item) => (
         <div className="flex items-center space-x-2">
           <span className={`font-medium ${value === 0 ? 'text-red-600' :
-              value <= item.restockThreshold ? 'text-yellow-600' :
-                'text-green-600'
+            value <= item.restockThreshold ? 'text-yellow-600' :
+              'text-green-600'
             }`}>
             {value} {item.unit}
           </span>
           <div className={`w-2 h-2 rounded-full ${value === 0 ? 'bg-red-500' :
-              value <= item.restockThreshold ? 'bg-yellow-500' :
-                'bg-green-500'
+            value <= item.restockThreshold ? 'bg-yellow-500' :
+              'bg-green-500'
             }`}></div>
         </div>
       )
@@ -458,7 +459,7 @@ export default function MenuManagementPage() {
       label: 'Available',
       sortable: true,
       render: (value, item) => (
-        <label 
+        <label
           className="flex items-center space-x-2"
           onClick={(e) => e.stopPropagation()}
         >
@@ -499,11 +500,11 @@ export default function MenuManagementPage() {
               </div>
             )}
           </div>
-          
+
           {/* Add Menu Item Button - Top Right */}
           <Button
             onClick={() => setShowAddMenuItemModal(true)}
-            className="bg-black text-white hover:bg-gray-800"
+            className="bg-black text-white hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out backdrop-blur-sm shadow-sm"
           >
             <svg className="w-4 h-4 mr-2 text-white inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -560,7 +561,7 @@ export default function MenuManagementPage() {
         {/* Unavailable Items Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${expiryFilter === 'unavailable-items' ? 'border-red-800 bg-red-50/80' :
-              menuItems.filter(item => !item.isAvailable).length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
+            menuItems.filter(item => !item.isAvailable).length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
             }`}
           onClick={handleUnavailableClick}
         >
@@ -593,7 +594,7 @@ export default function MenuManagementPage() {
         {/* Combined Ingredient Issues Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${expiryFilter === 'ingredient-issues' ? 'border-amber-800 bg-amber-50/80' :
-              (alerts.find(alert => alert.type === 'critical-stock') || alerts.find(alert => alert.type === 'low-stock')) ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
+            (alerts.find(alert => alert.type === 'critical-stock') || alerts.find(alert => alert.type === 'low-stock')) ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
             }`}
           onClick={handleIngredientIssuesClick}
         >
@@ -626,7 +627,7 @@ export default function MenuManagementPage() {
         {/* Expiring Soon Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${expiryFilter === 'expiring-soon' ? 'border-orange-800 bg-orange-50/80' :
-              expiringItemsCount > 0 ? 'border-orange-200 bg-orange-50/50' : 'border-white/20'
+            expiringItemsCount > 0 ? 'border-orange-200 bg-orange-50/50' : 'border-white/20'
             }`}
           onClick={handleExpiringSoonClick}
         >
@@ -681,41 +682,41 @@ export default function MenuManagementPage() {
                   placeholder="Search menu items..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 hover:border-gray-400 hover:shadow-md"
                 />
               </div>
             </div>
-            
+
             {/* Action Buttons */}
             <div className="flex items-center space-x-3 ml-4">
               {/* Filter Button */}
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
               </button>
-              
+
               {/* Print Button */}
               <button
-                onClick={() => alert('Print functionality coming soon')}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                onClick={() => toast.info('Print functionality coming soon')}
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
               </button>
-              
+
               {/* Export to CSV Button */}
               <button
-                onClick={() => alert('Export functionality coming soon')}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                onClick={() => toast.info('Export functionality coming soon')}
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Export CSV

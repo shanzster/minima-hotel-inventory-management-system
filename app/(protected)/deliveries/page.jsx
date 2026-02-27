@@ -18,7 +18,7 @@ export default function DeliveriesPage() {
   const [showReceiveModal, setShowReceiveModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  
+
   // Receive checklist state
   const [receiveChecklist, setReceiveChecklist] = useState([])
   const [receivedBy, setReceivedBy] = useState('')
@@ -43,14 +43,14 @@ export default function DeliveriesPage() {
     try {
       setLoading(true)
       const orders = await purchaseOrderApi.getAll()
-      
+
       // Filter orders that are approved or in-transit (ready for delivery)
-      const deliveryOrders = orders.filter(order => 
-        order.status === 'approved' || 
+      const deliveryOrders = orders.filter(order =>
+        order.status === 'approved' ||
         order.status === 'in-transit' ||
         order.status === 'delivered'
       )
-      
+
       setDeliveries(deliveryOrders)
     } catch (error) {
       console.error('Error loading deliveries:', error)
@@ -87,17 +87,17 @@ export default function DeliveriesPage() {
   const updateChecklistItem = (index, field, value) => {
     const updated = [...receiveChecklist]
     updated[index][field] = value
-    
+
     // If checking the checkbox, set received quantity to ordered quantity by default
     if (field === 'checked' && value === true) {
       updated[index].receivedQuantity = updated[index].orderedQuantity
     }
-    
+
     // If unchecking, reset received quantity to 0
     if (field === 'checked' && value === false) {
       updated[index].receivedQuantity = 0
     }
-    
+
     setReceiveChecklist(updated)
   }
 
@@ -106,12 +106,12 @@ export default function DeliveriesPage() {
     let shortDeliveries = []
     let overDeliveries = []
     let perfectDeliveries = []
-    
+
     receiveChecklist.forEach(item => {
       if (!item.checked) return
-      
+
       const difference = item.receivedQuantity - item.orderedQuantity
-      
+
       if (difference < 0) {
         shortDeliveries.push({
           ...item,
@@ -126,7 +126,7 @@ export default function DeliveriesPage() {
         perfectDeliveries.push(item)
       }
     })
-    
+
     return { shortDeliveries, overDeliveries, perfectDeliveries }
   }
 
@@ -138,7 +138,7 @@ export default function DeliveriesPage() {
     const totalOrderedCost = checkedItems.reduce((sum, item) => sum + (item.orderedQuantity * item.unitCost), 0)
     const totalReceivedCost = checkedItems.reduce((sum, item) => sum + (item.receivedQuantity * item.unitCost), 0)
     const { shortDeliveries, overDeliveries } = calculateAdjustments()
-    
+
     return {
       itemsChecked: checkedItems.length,
       totalItems: receiveChecklist.length,
@@ -156,17 +156,17 @@ export default function DeliveriesPage() {
   // Handle confirm button click
   const handleConfirmClick = () => {
     const checkedItems = receiveChecklist.filter(item => item.checked)
-    
+
     if (checkedItems.length === 0) {
       alert('Please check at least one item to receive')
       return
     }
-    
+
     if (!receivedBy.trim()) {
       alert('Please enter who received the delivery')
       return
     }
-    
+
     setShowConfirmModal(true)
   }
 
@@ -174,10 +174,10 @@ export default function DeliveriesPage() {
   const handleSubmitReceipt = async () => {
     try {
       setShowConfirmModal(false)
-      
+
       // Only process checked items
       const checkedItems = receiveChecklist.filter(item => item.checked)
-      
+
       // Update purchase order status
       await purchaseOrderApi.update(selectedDelivery.id, {
         status: 'delivered',
@@ -212,19 +212,19 @@ export default function DeliveriesPage() {
       })
 
       setShowReceiveModal(false)
-      
+
       // Show success toast
       const summary = getSummary()
       setSuccessMessage(`✅ Delivery received successfully!\n\n${summary.itemsChecked} items processed with ${summary.totalReceived} total units.`)
       setShowSuccessToast(true)
-      
+
       // Auto-hide toast after 5 seconds
       setTimeout(() => {
         setShowSuccessToast(false)
       }, 5000)
-      
+
       loadDeliveries()
-      
+
       // Show print preview after a short delay
       setTimeout(() => {
         setShowPrintPreview(true)
@@ -241,7 +241,17 @@ export default function DeliveriesPage() {
 
     const printWindow = window.open('', '_blank')
     const now = new Date()
-    
+    const generatedDate = now.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+    const generatedTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+
     const printHTML = `
       <!DOCTYPE html>
       <html>
@@ -416,6 +426,10 @@ export default function DeliveriesPage() {
               <div class="info-label">Expected Delivery</div>
               <div class="info-value">${new Date(completedReceipt.order.expectedDelivery).toLocaleDateString()}</div>
             </div>
+            <div class="info-section">
+              <div class="info-label">Generated By</div>
+              <div class="info-value">${user?.name || 'Authorized Personnel'}</div>
+            </div>
           </div>
           
           <table class="items-table">
@@ -433,12 +447,12 @@ export default function DeliveriesPage() {
             </thead>
             <tbody>
               ${completedReceipt.items.map(item => {
-                const difference = item.receivedQuantity - item.orderedQuantity
-                const status = difference < 0 ? 'SHORT' : difference > 0 ? 'OVER' : 'OK'
-                const statusColor = difference < 0 ? '#dc2626' : difference > 0 ? '#d97706' : '#059669'
-                const totalCost = item.receivedQuantity * item.unitCost
-                
-                return `
+      const difference = item.receivedQuantity - item.orderedQuantity
+      const status = difference < 0 ? 'SHORT' : difference > 0 ? 'OVER' : 'OK'
+      const statusColor = difference < 0 ? '#dc2626' : difference > 0 ? '#d97706' : '#059669'
+      const totalCost = item.receivedQuantity * item.unitCost
+
+      return `
                 <tr>
                   <td><strong>${item.itemName}</strong></td>
                   <td>₱${item.unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -470,8 +484,17 @@ export default function DeliveriesPage() {
               <div style="margin-top: 4px; font-size: 10px; color: #6b7280;">${completedReceipt.receivedBy}</div>
             </div>
             <div class="signature-box">
+              <div class="signature-line">Approved By</div>
+              <div style="margin-top: 4px; font-size: 10px; color: #6b7280;">Inventory / Branch Manager</div>
+            </div>
+          </div>
+          <div class="signature-section" style="margin-top: 24px;">
+            <div class="signature-box">
               <div class="signature-line">Delivered By</div>
               <div style="margin-top: 4px; font-size: 10px; color: #6b7280;">Supplier Representative</div>
+            </div>
+            <div class="signature-box" style="visibility: hidden;">
+              <div class="signature-line">Spacer</div>
             </div>
           </div>
           
@@ -482,10 +505,10 @@ export default function DeliveriesPage() {
         </body>
       </html>
     `
-    
+
     printWindow.document.write(printHTML)
     printWindow.document.close()
-    
+
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.print()
@@ -496,9 +519,9 @@ export default function DeliveriesPage() {
   // Filter deliveries
   const filteredDeliveries = deliveries.filter(delivery => {
     const matchesSearch = delivery.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         delivery.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase())
+      delivery.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = statusFilter === 'all' || delivery.status === statusFilter
-    
+
     // Date range filter
     let matchesDateRange = true
     if (dateFrom || dateTo) {
@@ -514,7 +537,7 @@ export default function DeliveriesPage() {
         matchesDateRange = matchesDateRange && deliveryDate <= toDate
       }
     }
-    
+
     return matchesSearch && matchesStatus && matchesDateRange
   })
 
@@ -529,11 +552,11 @@ export default function DeliveriesPage() {
       `₱${delivery.totalAmount?.toLocaleString() || '0'}`,
       delivery.items?.length || 0
     ])
-    
+
     const csvContent = [headers, ...csvData]
       .map(row => row.map(field => `"${field}"`).join(','))
       .join('\n')
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -549,7 +572,7 @@ export default function DeliveriesPage() {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank')
     const now = new Date()
-    
+
     const printHTML = `
       <!DOCTYPE html>
       <html>
@@ -597,7 +620,7 @@ export default function DeliveriesPage() {
         </body>
       </html>
     `
-    
+
     printWindow.document.write(printHTML)
     printWindow.document.close()
     printWindow.onload = () => {
@@ -617,32 +640,172 @@ export default function DeliveriesPage() {
   const handlePrintSingleReceipt = (delivery) => {
     const printWindow = window.open('', '_blank')
     const now = new Date()
-    
+    const generatedDate = now.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+    const generatedTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
     const printHTML = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Delivery Receipt - ${delivery.orderNumber}</title>
+          <title>Delivery Order - ${delivery.orderNumber}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-            body { font-family: 'Poppins', sans-serif; padding: 40px; }
-            .header { border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-            .title { font-size: 28px; font-weight: 700; margin: 0; }
-            .subtitle { color: #666; margin-top: 5px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            .info-box { background: #f9fafb; padding: 15px; border-radius: 8px; }
-            .info-label { font-size: 11px; color: #666; text-transform: uppercase; font-weight: 600; }
-            .info-value { font-size: 14px; font-weight: 500; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #e5e7eb; padding: 12px; text-align: left; }
-            th { background: #1f2937; color: white; font-weight: 600; font-size: 11px; text-transform: uppercase; }
-            .total-row { background: #f3f4f6; font-weight: 600; }
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+            
+            @media print {
+              @page {
+                margin: 0.75in;
+                size: A4;
+              }
+              
+              * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+              }
+            }
+            
+            body {
+              font-family: 'Poppins', sans-serif;
+              font-size: 11px;
+              line-height: 1.4;
+              color: #1f2937;
+              margin: 0;
+              padding: 0;
+              background: white;
+            }
+            
+            .header {
+              border-bottom: 3px solid #1f2937;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+            }
+            
+            .title {
+              font-size: 28px;
+              font-weight: 700;
+              color: #1f2937;
+              margin: 0 0 4px 0;
+              text-transform: uppercase;
+              letter-spacing: -0.025em;
+            }
+            
+            .subtitle {
+              font-size: 14px;
+              font-weight: 400;
+              color: #6b7280;
+              margin: 0;
+            }
+            
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 24px;
+            }
+            
+            .info-box {
+              background: #f9fafb;
+              padding: 12px 16px;
+              border-radius: 8px;
+              border: 1px solid #e5e7eb;
+            }
+            
+            .info-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #6b7280;
+              text-transform: uppercase;
+              margin-bottom: 2px;
+              letter-spacing: 0.05em;
+            }
+            
+            .info-value {
+              font-size: 13px;
+              font-weight: 500;
+              color: #1f2937;
+            }
+            
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 24px;
+            }
+            
+            th {
+              background: #1f2937;
+              color: white !important;
+              padding: 10px 8px;
+              text-align: left;
+              font-weight: 600;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+            
+            td {
+              padding: 10px 8px;
+              font-size: 11px;
+              border-bottom: 1px solid #e5e7eb;
+              color: #1f2937;
+            }
+            
+            tr:nth-child(even) {
+              background: #f9fafb;
+            }
+            
+            .total-row {
+              background: #f3f4f6;
+              font-weight: 700;
+            }
+            
+            .total-row td {
+              font-size: 13px;
+              border-top: 2px solid #1f2937;
+            }
+
+            .signature-section {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 40px;
+              margin-top: 40px;
+            }
+            
+            .signature-box {
+              text-align: center;
+            }
+            
+            .signature-line {
+              border-top: 1.5px solid #1f2937;
+              margin-top: 40px;
+              padding-top: 6px;
+              font-size: 10px;
+              font-weight: 600;
+              text-transform: uppercase;
+              color: #1f2937;
+            }
+
+            .footer-meta {
+              margin-top: 32px;
+              padding-top: 16px;
+              border-top: 1px solid #e5e7eb;
+              font-size: 9px;
+              color: #9ca3af;
+              text-align: left;
+              display: flex;
+              justify-content: space-between;
+            }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1 class="title">DELIVERY ORDER</h1>
-            <p class="subtitle">Minima Hotel - Inventory Management</p>
+            <h1 class="title">Delivery Order</h1>
+            <p class="subtitle">Official Procurement Document - Minima Hotel</p>
           </div>
           
           <div class="info-grid">
@@ -652,50 +815,80 @@ export default function DeliveriesPage() {
             </div>
             <div class="info-box">
               <div class="info-label">Expected Delivery</div>
-              <div class="info-value">${new Date(delivery.expectedDelivery).toLocaleDateString()}</div>
+              <div class="info-value">${new Date(delivery.expectedDelivery).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
             </div>
             <div class="info-box">
-              <div class="info-label">Supplier</div>
+              <div class="info-label">Supplier / Vendor</div>
               <div class="info-value">${delivery.supplier?.name || 'N/A'}</div>
             </div>
             <div class="info-box">
               <div class="info-label">Status</div>
-              <div class="info-value">${delivery.status.toUpperCase()}</div>
+              <div class="info-value" style="font-weight: 700; color: ${delivery.status === 'delivered' ? '#059669' : '#d97706'}">
+                ${delivery.status.toUpperCase()}
+              </div>
             </div>
           </div>
           
           <table>
             <thead>
               <tr>
-                <th>Item Description</th>
-                <th>Quantity</th>
-                <th>Unit Cost</th>
-                <th>Total</th>
+                <th style="width: 45%;">Item Description</th>
+                <th style="width: 15%;">Quantity</th>
+                <th style="width: 20%;">Unit Cost</th>
+                <th style="width: 20%;">Subtotal</th>
               </tr>
             </thead>
             <tbody>
               ${delivery.items?.map(item => `
                 <tr>
-                  <td>${item.itemName || 'Unknown Item'}</td>
+                  <td><strong>${item.itemName || 'Unknown Item'}</strong></td>
                   <td>${item.quantity}</td>
-                  <td>₱${item.unitCost?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</td>
-                  <td>₱${((item.quantity * (item.unitCost || 0))).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td>₱${item.unitCost?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</td>
+                  <td>₱${((item.quantity * (item.unitCost || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
-              `).join('') || '<tr><td colspan="4">No items</td></tr>'}
+              `).join('') || '<tr><td colspan="4" style="text-align: center;">No items listed</td></tr>'}
               <tr class="total-row">
-                <td colspan="3" style="text-align: right;">TOTAL AMOUNT:</td>
-                <td>₱${delivery.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</td>
+                <td colspan="3" style="text-align: right; padding-right: 16px;">ESTIMATED TOTAL AMOUNT:</td>
+                <td>₱${delivery.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</td>
               </tr>
             </tbody>
           </table>
+
+          <div class="signature-section">
+            <div class="signature-box">
+              <div class="signature-line">Prepared / Initiated By</div>
+              <div style="font-size: 9px; color: #6b7280;">Purchasing Officer / Staff</div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-line">Approved By</div>
+              <div style="font-size: 9px; color: #6b7280;">Inventory Manager / Branch Head</div>
+            </div>
+          </div>
+
+          <div class="signature-section" style="margin-top: 24px;">
+            <div class="signature-box">
+              <div class="signature-line">Supplier Acknowledgment</div>
+              <div style="font-size: 9px; color: #6b7280;">Name & Signature / Date</div>
+            </div>
+            <div class="signature-box" style="visibility: hidden;">
+              <div class="signature-line">Spacer</div>
+            </div>
+          </div>
           
-          <p style="margin-top: 40px; font-size: 11px; color: #666;">
-            Generated on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}
-          </p>
+          <div class="footer-meta">
+            <div>
+              <strong>Generated By:</strong> ${user?.name || 'System Administrator'}<br>
+              <strong>Generated On:</strong> ${generatedDate} at ${generatedTime}
+            </div>
+            <div style="text-align: right;">
+              MINIMA HOTEL - INVENTORY MANAGEMENT SYSTEM<br>
+              Document Version: 1.0 (PROD)
+            </div>
+          </div>
         </body>
       </html>
     `
-    
+
     printWindow.document.write(printHTML)
     printWindow.document.close()
     printWindow.onload = () => {
@@ -735,10 +928,9 @@ export default function DeliveriesPage() {
 
       {/* Status Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            statusFilter === 'all' ? 'border-slate-700 bg-slate-50/80' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'all' ? 'border-slate-700 bg-slate-50/80' : 'border-white/20'
+            }`}
           onClick={() => setStatusFilter('all')}
         >
           <div className="flex items-center space-x-3">
@@ -754,10 +946,9 @@ export default function DeliveriesPage() {
           </div>
         </div>
 
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            statusFilter === 'approved' ? 'border-blue-800 bg-blue-50/80' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'approved' ? 'border-blue-800 bg-blue-50/80' : 'border-white/20'
+            }`}
           onClick={() => setStatusFilter('approved')}
         >
           <div className="flex items-center space-x-3">
@@ -773,10 +964,9 @@ export default function DeliveriesPage() {
           </div>
         </div>
 
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            statusFilter === 'in-transit' ? 'border-amber-800 bg-amber-50/80' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'in-transit' ? 'border-amber-800 bg-amber-50/80' : 'border-white/20'
+            }`}
           onClick={() => setStatusFilter('in-transit')}
         >
           <div className="flex items-center space-x-3">
@@ -792,10 +982,9 @@ export default function DeliveriesPage() {
           </div>
         </div>
 
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            statusFilter === 'delivered' ? 'border-green-800 bg-green-50/80' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'delivered' ? 'border-green-800 bg-green-50/80' : 'border-white/20'
+            }`}
           onClick={() => setStatusFilter('delivered')}
         >
           <div className="flex items-center space-x-3">
@@ -837,35 +1026,35 @@ export default function DeliveriesPage() {
                 placeholder="Search by order number or supplier..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 hover:border-gray-400 hover:shadow-md"
               />
             </div>
-            
+
             {/* Action Buttons */}
             <div className="flex items-center space-x-3 ml-4">
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
               </button>
-              
+
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
               </button>
-              
+
               <button
                 onClick={exportToCSV}
-                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all backdrop-blur-sm"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
                 <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -903,8 +1092,8 @@ export default function DeliveriesPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredDeliveries.map((delivery) => (
-                <tr 
-                  key={delivery.id} 
+                <tr
+                  key={delivery.id}
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => handleRowClick(delivery)}
                 >
@@ -922,8 +1111,8 @@ export default function DeliveriesPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Badge variant={
                       delivery.status === 'delivered' ? 'success' :
-                      delivery.status === 'in-transit' ? 'warning' :
-                      'normal'
+                        delivery.status === 'in-transit' ? 'warning' :
+                          'normal'
                     }>
                       {delivery.status.replace('-', ' ').toUpperCase()}
                     </Badge>
@@ -1011,16 +1200,15 @@ export default function DeliveriesPage() {
                 {getSummary().itemsChecked} of {getSummary().totalItems} items checked
               </div>
             </div>
-            
+
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {receiveChecklist.map((item, index) => (
-                <div 
-                  key={index} 
-                  className={`border rounded-lg p-4 transition-all ${
-                    item.checked 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : 'bg-white border-gray-200'
-                  }`}
+                <div
+                  key={index}
+                  className={`border rounded-lg p-4 transition-all ${item.checked
+                    ? 'bg-blue-50 border-blue-200'
+                    : 'bg-white border-gray-200'
+                    }`}
                 >
                   <div className="flex items-start space-x-3">
                     {/* Checkbox */}
@@ -1032,7 +1220,7 @@ export default function DeliveriesPage() {
                         className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                     </div>
-                    
+
                     {/* Item Details */}
                     <div className="flex-1 space-y-3">
                       {/* Item Name and Ordered Quantity */}
@@ -1052,7 +1240,7 @@ export default function DeliveriesPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Input Fields - Only enabled when checked */}
                       {item.checked && (
                         <>
@@ -1096,23 +1284,22 @@ export default function DeliveriesPage() {
                                 </button>
                               </div>
                             </div>
-                            
+
                             <div className="col-span-3">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Difference
                               </label>
-                              <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${
-                                item.receivedQuantity - item.orderedQuantity < 0 
-                                  ? 'bg-red-100 text-red-700' 
-                                  : item.receivedQuantity - item.orderedQuantity > 0 
-                                  ? 'bg-amber-100 text-amber-700' 
+                              <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${item.receivedQuantity - item.orderedQuantity < 0
+                                ? 'bg-red-100 text-red-700'
+                                : item.receivedQuantity - item.orderedQuantity > 0
+                                  ? 'bg-amber-100 text-amber-700'
                                   : 'bg-green-100 text-green-700'
-                              }`}>
+                                }`}>
                                 {item.receivedQuantity - item.orderedQuantity > 0 ? '+' : ''}
                                 {item.receivedQuantity - item.orderedQuantity}
                               </div>
                             </div>
-                            
+
                             <div className="col-span-3">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Condition
@@ -1127,7 +1314,7 @@ export default function DeliveriesPage() {
                                 <option value="partial">Partial</option>
                               </select>
                             </div>
-                            
+
                             <div className="col-span-3">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Notes
@@ -1141,7 +1328,7 @@ export default function DeliveriesPage() {
                               />
                             </div>
                           </div>
-                          
+
                           {/* Total Cost Row */}
                           <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                             <span className="text-sm text-gray-600">Received Total:</span>
@@ -1177,14 +1364,13 @@ export default function DeliveriesPage() {
                 </div>
                 <div>
                   <span className="text-gray-600">Discrepancies:</span>
-                  <span className={`ml-2 font-semibold ${
-                    getSummary().hasDiscrepancies ? 'text-amber-600' : 'text-green-600'
-                  }`}>
+                  <span className={`ml-2 font-semibold ${getSummary().hasDiscrepancies ? 'text-amber-600' : 'text-green-600'
+                    }`}>
                     {getSummary().hasDiscrepancies ? `${getSummary().shortCount + getSummary().overCount} items` : 'None'}
                   </span>
                 </div>
               </div>
-              
+
               {/* Cost Summary */}
               <div className="mt-4 pt-4 border-t border-gray-300">
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1202,11 +1388,10 @@ export default function DeliveriesPage() {
                   </div>
                   <div className="col-span-2">
                     <span className="text-gray-600">Cost Difference:</span>
-                    <span className={`ml-2 font-semibold ${
-                      getSummary().costDifference < 0 ? 'text-red-600' :
+                    <span className={`ml-2 font-semibold ${getSummary().costDifference < 0 ? 'text-red-600' :
                       getSummary().costDifference > 0 ? 'text-amber-600' :
-                      'text-green-600'
-                    }`}>
+                        'text-green-600'
+                      }`}>
                       {getSummary().costDifference > 0 ? '+' : ''}
                       ₱{Math.abs(getSummary().costDifference).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
@@ -1251,7 +1436,7 @@ export default function DeliveriesPage() {
             </Button>
             <Button
               onClick={handleConfirmClick}
-              className="bg-black text-white hover:bg-gray-800"
+              className="bg-black text-white hover:bg-gray-800 hover:scale-105 hover:shadow-lg transition-all duration-200 ease-out"
               disabled={getSummary().itemsChecked === 0}
             >
               Confirm Receipt ({getSummary().itemsChecked} items)
@@ -1310,11 +1495,10 @@ export default function DeliveriesPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Cost difference:</span>
-              <span className={`font-semibold ${
-                getSummary().costDifference < 0 ? 'text-red-600' :
+              <span className={`font-semibold ${getSummary().costDifference < 0 ? 'text-red-600' :
                 getSummary().costDifference > 0 ? 'text-amber-600' :
-                'text-green-600'
-              }`}>
+                  'text-green-600'
+                }`}>
                 {getSummary().costDifference > 0 ? '+' : ''}
                 ₱{Math.abs(getSummary().costDifference).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
@@ -1351,7 +1535,7 @@ export default function DeliveriesPage() {
             </Button>
             <Button
               onClick={handleSubmitReceipt}
-              className="bg-black text-white hover:bg-gray-800"
+              className="bg-black text-white hover:bg-gray-800 hover:scale-105 hover:shadow-lg transition-all duration-200 ease-out"
             >
               Yes, Confirm Receipt
             </Button>
@@ -1372,7 +1556,7 @@ export default function DeliveriesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          
+
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Delivery Received Successfully!</h3>
             <p className="text-sm text-gray-600">
@@ -1389,7 +1573,7 @@ export default function DeliveriesPage() {
             </Button>
             <Button
               onClick={handlePrintReceipt}
-              className="bg-black text-white hover:bg-gray-800"
+              className="bg-black text-white hover:bg-gray-800 hover:scale-105 hover:shadow-lg transition-all duration-200 ease-out"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -1507,7 +1691,7 @@ export default function DeliveriesPage() {
             </Button>
             <Button
               onClick={() => setShowFilterModal(false)}
-              className="bg-black text-white hover:bg-gray-800"
+              className="bg-black text-white hover:bg-gray-800 hover:scale-105 hover:shadow-lg transition-all duration-200 ease-out"
             >
               Apply Filters
             </Button>
@@ -1537,8 +1721,8 @@ export default function DeliveriesPage() {
                   <span className="ml-2">
                     <Badge variant={
                       selectedDeliveryDetails.status === 'delivered' ? 'success' :
-                      selectedDeliveryDetails.status === 'in-transit' ? 'warning' :
-                      'normal'
+                        selectedDeliveryDetails.status === 'in-transit' ? 'warning' :
+                          'normal'
                     }>
                       {selectedDeliveryDetails.status.replace('-', ' ').toUpperCase()}
                     </Badge>

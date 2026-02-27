@@ -1,24 +1,26 @@
 import { useEffect } from 'react'
 import Button from './Button'
 
-export default function Modal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
   size = 'md',
   className = '',
-  centered = false
+  centered = false,
+  noPadding = false
 }) {
   // Size variants following design system
   const sizeStyles = {
-    sm: 'max-w-md',
-    md: 'max-w-lg', 
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
+    sm: 'max-w-md md:max-w-md',
+    md: 'max-w-full md:max-w-lg',
+    lg: 'max-w-full md:max-w-2xl',
+    xl: 'max-w-full md:max-w-4xl',
+    '2xl': 'max-w-full md:max-w-6xl',
     full: 'max-w-none w-full h-full max-h-none m-0 rounded-none lg:max-w-[80vw] lg:max-h-[90vh] lg:m-4 lg:rounded-lg'
   }
-  
+
   // Handle escape key press
   useEffect(() => {
     const handleEscape = (e) => {
@@ -26,41 +28,48 @@ export default function Modal({
         onClose()
       }
     }
-    
+
     if (isOpen) {
       document.addEventListener('keydown', handleEscape)
       // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden'
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape)
       document.body.style.overflow = 'unset'
     }
   }, [isOpen, onClose])
-  
+
   if (!isOpen) return null
-  
-  return (
-    <div 
-      className={`fixed inset-0 z-50 flex ${centered ? 'items-center' : 'items-start'} justify-center overflow-y-auto ${
-        size === 'full' ? 'p-0 lg:p-4' : 'p-4'
-      }`}
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+
+  // Use React Portal to render modal at document body level
+  const modalContent = (
+    <div
+      className={`fixed inset-0 z-[9999] flex ${centered ? 'items-center' : 'items-start'} justify-center overflow-y-auto ${size === 'full' ? 'p-0 lg:p-4' : 'p-4'
+        }`}
+      style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
+      }}
     >
       {/* Overlay */}
-      <div 
-        className="absolute inset-0" 
+      <div
+        className="absolute inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
-      
+
       {/* Modal */}
-      <div 
+      <div
         className={`
           relative bg-white shadow-lg w-full flex flex-col
-          ${size === 'full' ? 'h-full lg:my-8 lg:max-h-[90vh] lg:rounded-lg' : 'rounded-md max-h-[90vh]'}
-          ${centered ? '' : 'my-8'}
+          ${size === 'full' ? 'h-full lg:my-8 lg:max-h-[90vh] lg:rounded-lg' : 'rounded-none md:rounded-lg max-h-screen md:max-h-[90vh] md:my-8'}
+          ${centered ? '' : 'my-0 md:my-8'}
           ${sizeStyles[size]}
           ${className}
         `}
@@ -86,12 +95,19 @@ export default function Modal({
             </Button>
           </div>
         )}
-        
+
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className={`${noPadding ? 'p-0' : 'p-6'} overflow-y-auto flex-1`}>
           {children}
         </div>
       </div>
     </div>
   )
+
+  // Render modal content using React Portal to document.body
+  if (typeof document !== 'undefined') {
+    return require('react-dom').createPortal(modalContent, document.body)
+  }
+
+  return modalContent
 }

@@ -646,7 +646,7 @@ export default function SuppliersPage() {
           <div className="flex items-center space-x-4">
             <Button
               onClick={() => setShowCreateModal(true)}
-              className="bg-black text-white hover:bg-gray-800 backdrop-blur-sm whitespace-nowrap px-8"
+              className="bg-black text-white hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out backdrop-blur-sm whitespace-nowrap px-8"
             >
               Add New Supplier
             </Button>
@@ -683,7 +683,7 @@ export default function SuppliersPage() {
         {/* Active Suppliers Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'active' ? 'border-green-700 bg-green-50/80' :
-              activeSuppliers.length > 0 ? 'border-green-200 bg-green-50/50' : 'border-white/20'
+            activeSuppliers.length > 0 ? 'border-green-200 bg-green-50/50' : 'border-white/20'
             }`}
           onClick={handleActiveClick}
         >
@@ -712,7 +712,7 @@ export default function SuppliersPage() {
         {/* Pending Approval Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'pending' ? 'border-amber-700 bg-amber-50/80' :
-              pendingSuppliers.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
+            pendingSuppliers.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
             }`}
           onClick={handlePendingClick}
         >
@@ -741,7 +741,7 @@ export default function SuppliersPage() {
         {/* High Performing Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'high-performing' ? 'border-green-700 bg-green-50/80' :
-              highPerformingSuppliers.length > 0 ? 'border-green-200 bg-green-50/50' : 'border-white/20'
+            highPerformingSuppliers.length > 0 ? 'border-green-200 bg-green-50/50' : 'border-white/20'
             }`}
           onClick={handleHighPerformingClick}
         >
@@ -770,7 +770,7 @@ export default function SuppliersPage() {
         {/* Low Performing Card */}
         <div
           className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${statusFilter === 'low-performing' ? 'border-red-700 bg-red-50/80' :
-              lowPerformingSuppliers.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
+            lowPerformingSuppliers.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
             }`}
           onClick={handleLowPerformingClick}
         >
@@ -824,7 +824,7 @@ export default function SuppliersPage() {
                   placeholder="Search suppliers..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 hover:border-gray-400 hover:shadow-md"
                 />
               </div>
             </div>
@@ -834,9 +834,9 @@ export default function SuppliersPage() {
               {/* Filter Button */}
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
@@ -845,9 +845,9 @@ export default function SuppliersPage() {
               {/* Print Button */}
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
@@ -856,7 +856,7 @@ export default function SuppliersPage() {
               {/* Export to CSV Button */}
               <button
                 onClick={exportToCSV}
-                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all backdrop-blur-sm"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out shadow-sm backdrop-blur-sm"
               >
                 <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -993,8 +993,8 @@ export default function SuppliersPage() {
                           {/* Status */}
                           <td className="py-4 px-4">
                             <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${!supplier.isApproved ? 'bg-amber-100 text-amber-800' :
-                                supplier.isActive ? 'bg-green-100 text-green-800' :
-                                  'bg-gray-100 text-gray-800'
+                              supplier.isActive ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
                               }`}>
                               {!supplier.isApproved ? 'Pending Approval' : supplier.isActive ? 'Active' : 'Inactive'}
                             </div>
@@ -1007,8 +1007,8 @@ export default function SuppliersPage() {
                             ) : (
                               <div>
                                 <span className={`font-medium ${rating >= 4.5 ? 'text-green-600' :
-                                    rating >= 4.0 ? 'text-blue-600' :
-                                      rating >= 3.5 ? 'text-yellow-600' : 'text-red-600'
+                                  rating >= 4.0 ? 'text-blue-600' :
+                                    rating >= 3.5 ? 'text-yellow-600' : 'text-red-600'
                                   }`}>
                                   {rating.toFixed(1)}/5.0
                                 </span>
@@ -1187,9 +1187,9 @@ export default function SuppliersPage() {
                   className="w-full appearance-none bg-white border-2 border-gray-300 rounded-lg px-4 py-3 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-black focus:border-black cursor-pointer transition-all shadow-sm hover:border-gray-400"
                 >
                   <option value="">All Categories</option>
-                  {INVENTORY_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1).replace('-', ' ')}
+                  {Object.entries(INVENTORY_CATEGORIES).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
                     </option>
                   ))}
                 </select>
@@ -1331,7 +1331,7 @@ export default function SuppliersPage() {
               </button>
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="px-6 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-all shadow-sm backdrop-blur-sm"
+                className="px-6 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out shadow-sm backdrop-blur-sm"
               >
                 <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

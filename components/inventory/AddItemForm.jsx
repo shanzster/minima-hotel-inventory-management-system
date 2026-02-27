@@ -10,20 +10,23 @@ import supplierApi from '../../lib/supplierApi'
 
 export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
   const [formData, setFormData] = useState({
+    category: '', // Start with empty category
     name: '',
     description: '',
-    category: 'toiletries',
     type: 'consumable',
-    variant: '', // Product variant/SKU
+    variant: '',
     unit: 'pcs',
     restockThreshold: 10,
     maxStock: 100,
-    location: 'Kitchen Storage', // Default location
+    location: 'Kitchen Storage',
     supplier: '',
     cost: 0,
     notes: '',
     imageUrl: '',
-    imageMetadata: null
+    imageMetadata: null,
+    // Asset-specific fields
+    brand: '',
+    model: ''
   })
 
   const [suppliers, setSuppliers] = useState([])
@@ -76,11 +79,58 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
     { name: 'Pillowcases', unit: 'pcs', category: 'toiletries', restockThreshold: 10, maxStock: 40 }
   ]
 
+  // Get category-specific fields
+  const getCategoryFields = () => {
+    const category = formData.category
+    
+    // Equipment and Furniture (Assets)
+    if (category === 'equipment' || category === 'furniture') {
+      return {
+        showVariant: false,
+        showUnit: false,
+        showRestockThreshold: false,
+        showMaxStock: false,
+        showLocation: true,
+        showSupplier: true,
+        showCost: true,
+        showCondition: false,
+        showPurchaseDate: false,
+        type: 'asset'
+      }
+    }
+    
+    // Consumables (Food, Beverages, Toiletries, Cleaning, Office)
+    return {
+      showVariant: true,
+      showUnit: true,
+      showRestockThreshold: true,
+      showMaxStock: true,
+      showLocation: true,
+      showSupplier: true,
+      showCost: true,
+      showCondition: false,
+      showPurchaseDate: false,
+      type: 'consumable'
+    }
+  }
+
+  const categoryFields = getCategoryFields()
+
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      }
+      
+      // Update type based on category
+      if (field === 'category') {
+        const fields = getCategoryFields()
+        updated.type = fields.type
+      }
+      
+      return updated
+    })
 
     // Clear error for this field
     if (errors[field]) {
@@ -89,17 +139,6 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
         [field]: null
       }))
     }
-  }
-
-  const applyPreset = (preset) => {
-    setFormData(prev => ({
-      ...prev,
-      name: preset.name,
-      unit: preset.unit,
-      category: preset.category,
-      restockThreshold: preset.restockThreshold,
-      maxStock: preset.maxStock
-    }))
   }
 
   const handleImageUpload = (imageData) => {
@@ -161,6 +200,7 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
       // Prepare data for submission
       const submitData = {
         ...formData,
+        currentStock: 0, // Initialize with 0 stock
         restockThreshold: parseFloat(formData.restockThreshold) || 0,
         maxStock: formData.maxStock ? parseFloat(formData.maxStock) : null,
         cost: parseFloat(formData.cost) || 0,
@@ -178,9 +218,9 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
       setTimeout(() => {
         setShowSuccessModal(false)
         setFormData({
+          category: '',
           name: '',
           description: '',
-          category: 'toiletries',
           type: 'consumable',
           variant: '',
           unit: 'pcs',
@@ -191,7 +231,9 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
           cost: 0,
           notes: '',
           imageUrl: '',
-          imageMetadata: null
+          imageMetadata: null,
+          brand: '',
+          model: ''
         })
         setErrors({})
       }, 2000)
@@ -202,9 +244,9 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
     }
   }
 
-  const categoryOptions = INVENTORY_CATEGORIES.map(cat => ({
-    label: cat.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-    value: cat
+  const categoryOptions = Object.entries(INVENTORY_CATEGORIES).map(([value, label]) => ({
+    label,
+    value
   }))
 
   const unitOptions = [
@@ -223,206 +265,269 @@ export default function AddItemForm({ onSubmit, onCancel, isLoading = false }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Quick Presets for Room Essentials */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Quick Presets (Room Essentials)
-        </label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {roomEssentials.map((preset, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => applyPreset(preset)}
-              className="text-left px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors"
-            >
-              {preset.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Input
-            label="Item Name"
-            value={formData.name}
-            onChange={(value) => handleInputChange('name', value)}
-            error={errors.name}
-            required
-            placeholder="e.g., Toothpaste, Towels, Shampoo"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Category *
-          </label>
-          <select
-            value={formData.category}
-            onChange={(e) => handleInputChange('category', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-black ${
-              errors.category ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            {categoryOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {errors.category && (
-            <p className="mt-1 text-sm text-red-600">{errors.category}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Description */}
+      {/* Category Selection - FIRST */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
+          Category * <span className="text-xs text-gray-500">(Select category first)</span>
         </label>
-        <textarea
-          value={formData.description}
-          onChange={(e) => handleInputChange('description', e.target.value)}
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-          placeholder="Optional description of the item"
-        />
+        <select
+          value={formData.category}
+          onChange={(e) => handleInputChange('category', e.target.value)}
+          className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-black ${
+            errors.category ? 'border-red-500' : formData.category ? 'border-green-500' : 'border-gray-300'
+          }`}
+          required
+        >
+          <option value="">-- Select Category --</option>
+          {categoryOptions.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {errors.category && (
+          <p className="mt-1 text-sm text-red-600">{errors.category}</p>
+        )}
+        {formData.category && (
+          <p className="mt-1 text-xs text-green-600">
+            ✓ Category selected: {categoryOptions.find(c => c.value === formData.category)?.label}
+          </p>
+        )}
       </div>
 
-      {/* Variant */}
-      <div>
-        <Input
-          label="Variant"
-          value={formData.variant}
-          onChange={(value) => handleInputChange('variant', value)}
-          placeholder="e.g., Red, Golden, Blue, Large, Small, etc."
-        />
-      </div>
+      {/* Show form fields only after category is selected */}
+      {formData.category && (
+        <>
+          {/* Basic Information */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+            
+            <div className="space-y-4">
+              <Input
+                label="Item Name"
+                value={formData.name}
+                onChange={(value) => handleInputChange('name', value)}
+                error={errors.name}
+                required
+                placeholder={
+                  categoryFields.type === 'asset' 
+                    ? 'e.g., Air Conditioner, Bed, TV' 
+                    : 'e.g., Toothpaste, Towels, Shampoo'
+                }
+              />
 
-      {/* Product Image Upload */}
-      <div>
-        <ImageUpload
-          onImageUpload={handleImageUpload}
-          imageUrl={formData.imageUrl}
-          imageAlt={formData.name || 'Product'}
-          disabled={isLoading}
-        />
-      </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Optional description of the item"
+                />
+              </div>
 
-      {/* Unit and Restock Threshold */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Unit *
-          </label>
-          <select
-            value={formData.unit}
-            onChange={(e) => handleInputChange('unit', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-            required
-          >
-            {unitOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+              {categoryFields.showVariant && (
+                <Input
+                  label="Variant"
+                  value={formData.variant}
+                  onChange={(value) => handleInputChange('variant', value)}
+                  placeholder="e.g., Red, Golden, Blue, Large, Small, etc."
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Product Image Upload */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Image</h3>
+            <ImageUpload
+              onImageUpload={handleImageUpload}
+              imageUrl={formData.imageUrl}
+              imageAlt={formData.name || 'Product'}
+              disabled={isLoading}
+            />
+          </div>
+
+          {/* Asset-Specific Fields */}
+          {categoryFields.type === 'asset' && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Asset Details</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Brand"
+                  value={formData.brand || ''}
+                  onChange={(value) => handleInputChange('brand', value)}
+                  placeholder="e.g., Samsung, LG, Sony"
+                />
+
+                <Input
+                  label="Model"
+                  value={formData.model || ''}
+                  onChange={(value) => handleInputChange('model', value)}
+                  placeholder="e.g., UN55, XBR-65"
+                />
+
+                <Input
+                  label="Asset Value (₱)"
+                  type="number"
+                  value={formData.value || ''}
+                  onChange={(value) => handleInputChange('value', parseFloat(value) || 0)}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> This creates a master item template. Individual units with serial numbers will be tracked when assigning to rooms.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Consumable-Specific Fields */}
+          {categoryFields.type === 'consumable' && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Management</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categoryFields.showUnit && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Unit *
+                    </label>
+                    <select
+                      value={formData.unit}
+                      onChange={(e) => handleInputChange('unit', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                      required
+                    >
+                      {unitOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {categoryFields.showRestockThreshold && (
+                  <Input
+                    label="Restock Threshold"
+                    type="number"
+                    value={formData.restockThreshold}
+                    onChange={(value) => handleInputChange('restockThreshold', parseFloat(value) || 0)}
+                    error={errors.restockThreshold}
+                    min="0"
+                    step="1"
+                    required
+                  />
+                )}
+
+                {categoryFields.showMaxStock && (
+                  <Input
+                    label="Maximum Stock (Optional)"
+                    type="number"
+                    value={formData.maxStock}
+                    onChange={(value) => handleInputChange('maxStock', value ? parseFloat(value) : '')}
+                    error={errors.maxStock}
+                    min="0"
+                    step="1"
+                    placeholder="Leave empty for unlimited"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Location and Supplier */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Location & Supplier</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {categoryFields.showLocation && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location *
+                  </label>
+                  <select
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                    required
+                  >
+                    {locationPresets.map(location => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {categoryFields.showSupplier && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Supplier
+                  </label>
+                  <select
+                    value={formData.supplier}
+                    onChange={(e) => handleInputChange('supplier', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                    disabled={loadingSuppliers}
+                  >
+                    <option value="">{loadingSuppliers ? 'Loading suppliers...' : 'Select Supplier'}</option>
+                    {suppliers.map(supplier => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {categoryFields.showCost && (
+                <Input
+                  label="Cost per Unit (₱)"
+                  type="number"
+                  value={formData.cost}
+                  onChange={(value) => handleInputChange('cost', parseFloat(value) || 0)}
+                  error={errors.cost}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="border-t pt-6">
+            <Input
+              label="Notes"
+              value={formData.notes}
+              onChange={(value) => handleInputChange('notes', value)}
+              placeholder="Additional notes about this item"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Show message if category not selected */}
+      {!formData.category && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <svg className="w-12 h-12 mx-auto mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-blue-800 font-medium mb-2">Please select a category first</p>
+          <p className="text-sm text-blue-600">Different categories have different input fields</p>
         </div>
-
-        <div>
-          <Input
-            label="Restock Threshold"
-            type="number"
-            value={formData.restockThreshold}
-            onChange={(value) => handleInputChange('restockThreshold', parseFloat(value) || 0)}
-            error={errors.restockThreshold}
-            min="0"
-            step="1"
-            required
-          />
-        </div>
-      </div>
-
-      {/* Max Stock */}
-      <div>
-        <Input
-          label="Maximum Stock (Optional)"
-          type="number"
-          value={formData.maxStock}
-          onChange={(value) => handleInputChange('maxStock', value ? parseFloat(value) : '')}
-          error={errors.maxStock}
-          min="0"
-          step="1"
-          placeholder="Leave empty for unlimited"
-        />
-      </div>
-
-      {/* Location and Supplier */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Location *
-          </label>
-          <select
-            value={formData.location}
-            onChange={(e) => handleInputChange('location', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-            required
-          >
-            {locationPresets.map(location => (
-              <option key={location} value={location}>
-                {location}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Supplier
-          </label>
-          <select
-            value={formData.supplier}
-            onChange={(e) => handleInputChange('supplier', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
-            disabled={loadingSuppliers}
-          >
-            <option value="">{loadingSuppliers ? 'Loading suppliers...' : 'Select Supplier'}</option>
-            {suppliers.map(supplier => (
-              <option key={supplier.id} value={supplier.id}>
-                {supplier.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Cost */}
-      <div>
-        <Input
-          label="Cost per Unit (₱)"
-          type="number"
-          value={formData.cost}
-          onChange={(value) => handleInputChange('cost', parseFloat(value) || 0)}
-          error={errors.cost}
-          min="0"
-          step="0.01"
-          placeholder="0.00"
-        />
-      </div>
-
-      {/* Notes */}
-      <div>
-        <Input
-          label="Notes"
-          value={formData.notes}
-          onChange={(value) => handleInputChange('notes', value)}
-          placeholder="Additional notes about this item"
-        />
-      </div>
+      )}
 
       {/* Error Display */}
       {errors.submit && (

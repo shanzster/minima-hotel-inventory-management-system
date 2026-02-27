@@ -205,7 +205,7 @@ export default function SupplierForm({
         </p>
         
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {INVENTORY_CATEGORIES.map(category => (
+          {Object.keys(INVENTORY_CATEGORIES).map(category => (
             <label key={category} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"

@@ -7,9 +7,10 @@ import AssetManager from '../../../../components/inventory/AssetManager'
 import AlertBanner from '../../../../components/inventory/AlertBanner'
 import Button from '../../../../components/ui/Button'
 import Modal from '../../../../components/ui/Modal'
-import AddAssetWithRoomMap from '../../../../components/inventory/AddAssetWithRoomMap'
+import EnhancedAssetAssignment from '../../../../components/inventory/EnhancedAssetAssignment'
 import { mockInventoryItems } from '../../../../lib/mockData'
 import inventoryApi from '../../../../lib/inventoryApi'
+import toast from '../../../../lib/toast'
 
 export default function AssetsPage() {
   const { setTitle } = usePageTitle()
@@ -31,8 +32,19 @@ export default function AssetsPage() {
 
   // Filter assets from inventory items
   useEffect(() => {
-    const assetItems = mockInventoryItems.filter(item => item.type === 'asset')
-    setAssets(assetItems)
+    const loadAssets = async () => {
+      try {
+        const items = await inventoryApi.getAll()
+        // Only show asset instances, not master items
+        const assetItems = items.filter(item =>
+          item.type === 'asset-instance'
+        )
+        setAssets(assetItems)
+      } catch (error) {
+        console.error('Error loading assets:', error)
+      }
+    }
+    loadAssets()
   }, [])
 
   // Calculate asset metrics
@@ -72,7 +84,7 @@ export default function AssetsPage() {
   // Get filtered assets for display count
   const getFilteredAssets = () => {
     let filtered = [...assets]
-    
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -84,20 +96,57 @@ export default function AssetsPage() {
         asset.room?.toLowerCase().includes(query)
       )
     }
-    
+
     if (conditionFilter) {
       filtered = filtered.filter(asset => asset.condition === conditionFilter)
     }
-    
+
     if (categoryFilter) {
       filtered = filtered.filter(asset => asset.category === categoryFilter)
     }
-    
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue
+
+      switch (sortBy) {
+        case 'name':
+          aValue = a.name?.toLowerCase() || ''
+          bValue = b.name?.toLowerCase() || ''
+          break
+        case 'category':
+          aValue = a.category?.toLowerCase() || ''
+          bValue = b.category?.toLowerCase() || ''
+          break
+        case 'condition':
+          // Sort by condition priority: good < needs-maintenance < damaged
+          const conditionOrder = { 'good': 1, 'needs-maintenance': 2, 'damaged': 3 }
+          aValue = conditionOrder[a.condition || 'good'] || 0
+          bValue = conditionOrder[b.condition || 'good'] || 0
+          break
+        case 'room':
+          aValue = a.room?.toLowerCase() || ''
+          bValue = b.room?.toLowerCase() || ''
+          break
+        case 'purchaseDate':
+          aValue = a.purchaseDate ? new Date(a.purchaseDate).getTime() : 0
+          bValue = b.purchaseDate ? new Date(b.purchaseDate).getTime() : 0
+          break
+        default:
+          aValue = a.name?.toLowerCase() || ''
+          bValue = b.name?.toLowerCase() || ''
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+
     return filtered
   }
 
   const filteredAssets = getFilteredAssets()
-  
+
   // Export to CSV function
   const exportToCSV = () => {
     const headers = ['Asset Name', 'Category', 'Condition', 'Room', 'Location', 'Purchase Date', 'Value']
@@ -112,11 +161,11 @@ export default function AssetsPage() {
         asset.value ? `₱${asset.value.toFixed(2)}` : '-'
       ]
     })
-    
+
     const csvContent = [headers, ...csvData]
       .map(row => row.map(field => `"${field}"`).join(','))
       .join('\n')
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -127,22 +176,22 @@ export default function AssetsPage() {
     link.click()
     document.body.removeChild(link)
   }
-  
+
   // Print function
   const handlePrint = () => {
     const printWindow = window.open('', '_blank')
-    
+
     const now = new Date()
-    const generatedDate = now.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const generatedDate = now.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     })
-    const generatedTime = now.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    const generatedTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
     })
-    
+
     const printHTML = `
       <!DOCTYPE html>
       <html>
@@ -364,13 +413,13 @@ export default function AssetsPage() {
               </thead>
               <tbody>
                 ${filteredAssets.map(asset => {
-                  const condition = asset.condition || 'good'
-                  const conditionText = condition === 'good' ? 'Good' :
-                                       condition === 'needs-maintenance' ? 'Needs Maintenance' :
-                                       condition === 'damaged' ? 'Damaged' : 'Good'
-                  const conditionClass = `condition-${condition}`
-                  
-                  return `
+      const condition = asset.condition || 'good'
+      const conditionText = condition === 'good' ? 'Good' :
+        condition === 'needs-maintenance' ? 'Needs Maintenance' :
+          condition === 'damaged' ? 'Damaged' : 'Good'
+      const conditionClass = `condition-${condition}`
+
+      return `
                     <tr>
                       <td><strong>${asset.name}</strong></td>
                       <td><span class="category-badge">${asset.category || '-'}</span></td>
@@ -380,7 +429,7 @@ export default function AssetsPage() {
                       <td>${asset.value ? '₱' + asset.value.toFixed(2) : '-'}</td>
                     </tr>
                   `
-                }).join('')}
+    }).join('')}
               </tbody>
             </table>
           </div>
@@ -392,10 +441,10 @@ export default function AssetsPage() {
         </body>
       </html>
     `
-    
+
     printWindow.document.write(printHTML)
     printWindow.document.close()
-    
+
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.print()
@@ -411,14 +460,14 @@ export default function AssetsPage() {
       if (!assetAction || !assetAction.assetId || !assetAction.type) {
         throw new Error('Invalid asset action data')
       }
-      
+
       if (!user || !user.id || !user.role) {
         throw new Error('Invalid user data')
       }
-      
+
       // Check if action requires approval
       const requiresApproval = determineApprovalRequirement(assetAction, user)
-      
+
       // Create workflow entry
       const workflowEntry = {
         id: `asset-workflow-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
@@ -434,22 +483,22 @@ export default function AssetsPage() {
         approvedBy: requiresApproval ? null : user.id,
         status: requiresApproval ? 'pending-approval' : 'completed'
       }
-      
+
       // Add to workflow entries
       setWorkflowEntries(prev => [...prev, workflowEntry])
-      
+
       // Update asset data if approved immediately
       if (!requiresApproval) {
         updateAssetData(assetAction, workflowEntry)
       }
-      
+
       // Show success message
-      const message = requiresApproval 
+      const message = requiresApproval
         ? `${assetAction.type} request submitted for approval`
         : `${assetAction.type} completed successfully`
-      
+
       alert(message)
-      
+
     } catch (error) {
       alert(`Error: ${error.message}`)
     }
@@ -459,13 +508,13 @@ export default function AssetsPage() {
     // Inventory Controllers can approve their own actions for most cases
     if (user.role === 'inventory-controller') {
       // High-value adjustments or write-offs require additional approval
-      if ((assetAction.type === 'adjustment' || assetAction.type === 'write-off') && 
-          assetAction.details?.value > 5000) {
+      if ((assetAction.type === 'adjustment' || assetAction.type === 'write-off') &&
+        assetAction.details?.value > 5000) {
         return true
       }
       return false
     }
-    
+
     // Other roles require approval for most asset actions
     return true
   }
@@ -475,7 +524,7 @@ export default function AssetsPage() {
       return prevAssets.map(asset => {
         if (asset.id === assetAction.assetId) {
           const updatedAsset = { ...asset }
-          
+
           switch (assetAction.type) {
             case 'assignment':
               updatedAsset.assignedTo = assetAction.details.assignedTo
@@ -492,10 +541,10 @@ export default function AssetsPage() {
               // In a real app, this would update asset value/status
               break
           }
-          
+
           updatedAsset.updatedAt = new Date()
           updatedAsset.updatedBy = workflowEntry.performedBy
-          
+
           return updatedAsset
         }
         return asset
@@ -522,16 +571,17 @@ export default function AssetsPage() {
               Track assets and maintenance schedules
             </p>
           </div>
-          
+
           {/* Add Asset Button - Top Right */}
           <Button
             onClick={() => setShowAddAssetModal(true)}
             className="bg-black text-white hover:bg-gray-800"
           >
             <svg className="w-4 h-4 mr-2 text-white inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Add New Asset
+            Assign Assets to Room
           </Button>
         </div>
       </div>
@@ -539,10 +589,9 @@ export default function AssetsPage() {
       {/* Asset Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {/* All Assets Card */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            !conditionFilter && !categoryFilter ? 'border-slate-700 bg-slate-50/80' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${!conditionFilter && !categoryFilter ? 'border-slate-700 bg-slate-50/80' : 'border-white/20'
+            }`}
           onClick={handleAllAssetsClick}
         >
           <div className="flex items-center justify-between mb-3">
@@ -562,11 +611,10 @@ export default function AssetsPage() {
         </div>
 
         {/* Equipment Card */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            categoryFilter === 'equipment' ? 'border-blue-800 bg-blue-50/80' :
-            equipmentAssets.length > 0 ? 'border-blue-200 bg-blue-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${categoryFilter === 'equipment' ? 'border-blue-800 bg-blue-50/80' :
+              equipmentAssets.length > 0 ? 'border-blue-200 bg-blue-50/50' : 'border-white/20'
+            }`}
           onClick={handleEquipmentClick}
         >
           <div className="flex items-center justify-between mb-3">
@@ -588,11 +636,10 @@ export default function AssetsPage() {
         </div>
 
         {/* Furniture Card */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            categoryFilter === 'furniture' ? 'border-green-800 bg-green-50/80' :
-            furnitureAssets.length > 0 ? 'border-green-200 bg-green-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${categoryFilter === 'furniture' ? 'border-green-800 bg-green-50/80' :
+              furnitureAssets.length > 0 ? 'border-green-200 bg-green-50/50' : 'border-white/20'
+            }`}
           onClick={handleFurnitureClick}
         >
           <div className="flex items-center justify-between mb-3">
@@ -614,11 +661,10 @@ export default function AssetsPage() {
         </div>
 
         {/* Needs Maintenance Card */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            conditionFilter === 'needs-maintenance' ? 'border-amber-800 bg-amber-50/80' :
-            needsMaintenanceAssets.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${conditionFilter === 'needs-maintenance' ? 'border-amber-800 bg-amber-50/80' :
+              needsMaintenanceAssets.length > 0 ? 'border-amber-200 bg-amber-50/50' : 'border-white/20'
+            }`}
           onClick={handleMaintenanceClick}
         >
           <div className="flex items-center justify-between mb-3">
@@ -643,11 +689,10 @@ export default function AssetsPage() {
         </div>
 
         {/* Damaged Assets Card */}
-        <div 
-          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${
-            conditionFilter === 'damaged' ? 'border-red-800 bg-red-50/80' :
-            damagedAssets.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
-          }`}
+        <div
+          className={`bg-white/80 backdrop-blur-xl rounded-lg border p-4 cursor-pointer transition-all duration-200 ease-out hover:shadow-xl shadow-xl ${conditionFilter === 'damaged' ? 'border-red-800 bg-red-50/80' :
+              damagedAssets.length > 0 ? 'border-red-200 bg-red-50/50' : 'border-white/20'
+            }`}
           onClick={handleDamagedClick}
         >
           <div className="flex items-center justify-between mb-3">
@@ -703,7 +748,7 @@ export default function AssetsPage() {
             </span>
           </h3>
         </div>
-        
+
         {/* Search Bar and Action Buttons Row */}
         <div className="border-b border-white/20 p-4">
           <div className="flex items-center justify-between">
@@ -720,35 +765,35 @@ export default function AssetsPage() {
                   placeholder="Search assets..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition-all"
                 />
               </div>
             </div>
-            
+
             {/* Action Buttons */}
             <div className="flex items-center space-x-3 ml-4">
               {/* Filter Button */}
               <button
                 onClick={() => setShowFilterModal(true)}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                 </svg>
                 Filter
               </button>
-              
+
               {/* Print Button */}
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 hover:bg-white/80 transition-all"
+                className="inline-flex items-center px-3 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-all"
               >
-                <svg className="w-4 h-4 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print
               </button>
-              
+
               {/* Export to CSV Button */}
               <button
                 onClick={exportToCSV}
@@ -762,7 +807,7 @@ export default function AssetsPage() {
             </div>
           </div>
         </div>
-        
+
         <AssetManager
           assets={assets}
           onAssetUpdate={handleAssetUpdate}
@@ -779,7 +824,7 @@ export default function AssetsPage() {
               Recent Asset Activities
             </h3>
           </div>
-          
+
           <div className="divide-y divide-gray-200">
             {workflowEntries.slice(-10).reverse().map((entry) => (
               <div key={entry.id} className="px-6 py-4">
@@ -796,11 +841,10 @@ export default function AssetsPage() {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      entry.status === 'completed' 
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${entry.status === 'completed'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-yellow-100 text-yellow-800'
-                    }`}>
+                      }`}>
                       {entry.status.replace('-', ' ')}
                     </span>
                   </div>
@@ -810,22 +854,72 @@ export default function AssetsPage() {
           </div>
         </div>
       )}
-      
+
       {/* Add Asset Modal */}
       <Modal
         isOpen={showAddAssetModal}
         onClose={() => setShowAddAssetModal(false)}
-        title="Add New Asset"
-        size="xl"
+        title="Assign Assets to Room"
+        size="2xl"
       >
-        <AddAssetWithRoomMap
-          onSubmit={async (assetData) => {
+        <EnhancedAssetAssignment
+          onSubmit={async (result) => {
             try {
-              await inventoryApi.create(assetData)
+              let totalChanges = 0
+
+              // Handle new assets - create asset instances instead of new items
+              for (const assetData of result.newAssets) {
+                // Find the master item by name
+                const allItems = await inventoryApi.getAll()
+                const masterItem = allItems.find(item => 
+                  item.name === assetData.name && 
+                  (item.category === 'equipment' || item.category === 'furniture') &&
+                  item.type !== 'asset-instance'
+                )
+
+                if (masterItem) {
+                  // Create asset instance referencing the master item
+                  await inventoryApi.createAssetInstance(masterItem.id, {
+                    room: assetData.room,
+                    roomId: assetData.roomId,
+                    location: assetData.location,
+                    condition: assetData.condition,
+                    serialNumber: assetData.serialNumber,
+                    notes: assetData.notes
+                  })
+                } else {
+                  console.warn(`Master item not found for: ${assetData.name}`)
+                }
+                totalChanges++
+              }
+
+              // Handle edited assets
+              for (const editedAsset of result.editedAssets) {
+                await inventoryApi.update(editedAsset.id, {
+                  condition: editedAsset.condition
+                })
+                totalChanges++
+              }
+
+              // Handle removed assets
+              for (const assetId of result.removedAssetIds) {
+                await inventoryApi.delete(assetId)
+                totalChanges++
+              }
+
               setShowAddAssetModal(false)
+              
+              // Reload assets
+              const allItems = await inventoryApi.getAll()
+              const assetItems = allItems.filter(item =>
+                item.type === 'asset-instance'
+              )
+              setAssets(assetItems)
+              
+              toast.success(`Successfully saved ${totalChanges} change(s)`)
             } catch (error) {
-              console.error('Error adding asset:', error)
-              alert('Failed to add asset. Please try again.')
+              console.error('Error saving changes:', error)
+              toast.error('Failed to save changes. Please try again.')
             }
           }}
           onCancel={() => setShowAddAssetModal(false)}
@@ -854,7 +948,7 @@ export default function AssetsPage() {
               <option value="furniture">Furniture</option>
             </select>
           </div>
-          
+
           {/* Condition Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -871,7 +965,7 @@ export default function AssetsPage() {
               <option value="damaged">Damaged</option>
             </select>
           </div>
-          
+
           {/* Sort By */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -889,7 +983,7 @@ export default function AssetsPage() {
               <option value="purchaseDate">Purchase Date</option>
             </select>
           </div>
-          
+
           {/* Sort Direction */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -904,7 +998,7 @@ export default function AssetsPage() {
               <option value="desc">Descending</option>
             </select>
           </div>
-          
+
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-4">
             <Button

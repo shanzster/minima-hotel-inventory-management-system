@@ -1,9 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import toast from '../../lib/toast'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 import Modal from '../ui/Modal'
+import ImageUpload from './ImageUpload'
 import menuApi from '../../lib/menuApi'
 import inventoryApi from '../../lib/inventoryApi'
 
@@ -26,7 +28,9 @@ export default function MenuItemDetailsModal({
         description: menuItem.description || '',
         category: menuItem.category || '',
         preparationTime: menuItem.preparationTime || 0,
-        requiredIngredients: menuItem.requiredIngredients || []
+        price: menuItem.price || 0,
+        imageUrl: menuItem.imageUrl || '',
+        imageMetadata: menuItem.imageMetadata || null
       })
     }
   }, [menuItem])
@@ -34,21 +38,22 @@ export default function MenuItemDetailsModal({
   const handleAvailabilityToggle = async () => {
     try {
       await onUpdateAvailability(menuItem.id, !menuItem.isAvailable)
+      toast.success(`Menu item ${menuItem.isAvailable ? 'disabled' : 'enabled'} successfully!`)
       onClose()
     } catch (error) {
       console.error('Error updating availability:', error)
-      alert('Failed to update availability. Please try again.')
+      toast.error('Failed to update availability. Please try again.')
     }
   }
 
   const handleEditItem = async () => {
     try {
       await onUpdateItem(menuItem.id, editForm)
-      alert('Menu item updated successfully!')
+      toast.success('Menu item updated successfully!')
       setIsEditing(false)
     } catch (error) {
       console.error('Error updating menu item:', error)
-      alert('Failed to update menu item. Please try again.')
+      toast.error('Failed to update menu item. Please try again.')
     }
   }
 
@@ -59,12 +64,17 @@ export default function MenuItemDetailsModal({
     }))
   }
 
-  const updateIngredient = (index, field, value) => {
+  const handleImageUpload = (imageData) => {
     setEditForm(prev => ({
       ...prev,
-      requiredIngredients: prev.requiredIngredients.map((ing, i) =>
-        i === index ? { ...ing, [field]: value } : ing
-      )
+      imageUrl: imageData.url,
+      imageMetadata: {
+        publicId: imageData.publicId,
+        width: imageData.width,
+        height: imageData.height,
+        size: imageData.size,
+        format: imageData.format
+      }
     }))
   }
 
@@ -91,7 +101,7 @@ export default function MenuItemDetailsModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`${menuItem.name} - Menu Details`}
-      size="xl"
+      size="2xl"
     >
       <div className="space-y-6">
         {/* Header with Status and Actions */}
@@ -132,9 +142,54 @@ export default function MenuItemDetailsModal({
         </div>
 
         {/* Menu Item Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Basic Info */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Image */}
           <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900">Menu Item Image</h3>
+            
+            {isEditing ? (
+              <ImageUpload
+                onImageUpload={handleImageUpload}
+                imageUrl={editForm.imageUrl}
+                imageAlt={editForm.name || 'Menu Item'}
+                disabled={isLoading}
+              />
+            ) : (
+              <div className="space-y-3">
+                {menuItem.imageUrl ? (
+                  <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                    <img
+                      src={menuItem.imageUrl}
+                      alt={menuItem.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <div className="text-center text-gray-400">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <p className="text-sm">No image</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Middle Column - Basic Info */}
+          <div className="space-y-4 lg:col-span-2">
             <h3 className="text-lg font-medium text-gray-900">Menu Item Information</h3>
 
             <div className="grid grid-cols-1 gap-4">
@@ -174,7 +229,7 @@ export default function MenuItemDetailsModal({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category
@@ -199,6 +254,26 @@ export default function MenuItemDetailsModal({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Price (₱)
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      value={editForm.price}
+                      onChange={(e) => handleEditFormChange('price', parseFloat(e.target.value) || 0)}
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-md">
+                      ₱{(menuItem.price || 0).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Preparation Time
                   </label>
                   {isEditing ? (
@@ -211,113 +286,30 @@ export default function MenuItemDetailsModal({
                     />
                   ) : (
                     <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-md">
-                      {menuItem.preparationTime} minutes
+                      {menuItem.preparationTime} min
                     </p>
                   )}
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Right Column - Ingredients */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Required Ingredients</h3>
-
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {menuItem.requiredIngredients?.map((ingredient, index) => (
-                <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        Ingredient #{index + 1}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        ID: {ingredient.ingredientId}
-                      </p>
-                    </div>
-                  </div>
-
-                  {isEditing ? (
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Quantity Required
-                        </label>
-                        <input
-                          type="number"
-                          value={editForm.requiredIngredients[index]?.quantityRequired || 0}
-                          onChange={(e) => updateIngredient(index, 'quantityRequired', parseFloat(e.target.value) || 0)}
-                          step="0.01"
-                          min="0"
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-black"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Unit
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm.requiredIngredients[index]?.unit || ''}
-                          onChange={(e) => updateIngredient(index, 'unit', e.target.value)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-black"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={editForm.requiredIngredients[index]?.isCritical || false}
-                            onChange={(e) => updateIngredient(index, 'isCritical', e.target.checked)}
-                            className="rounded border-gray-300 text-black focus:ring-black"
-                          />
-                          <span className="ml-2 text-xs text-gray-700">Critical Ingredient</span>
-                        </label>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-500">Quantity:</span>
-                        <span className="ml-2 font-medium">{ingredient.quantityRequired} {ingredient.unit}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Critical:</span>
-                        <span className={`ml-2 font-medium ${ingredient.isCritical ? 'text-red-600' : 'text-green-600'}`}>
-                          {ingredient.isCritical ? 'Yes' : 'No'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )) || (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No ingredients specified
-                </p>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Stock Information */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-800 mb-2">Stock Information</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-blue-700">Menu Stock:</span>
-              <span className="ml-2 font-medium">{menuItem.currentStock} servings</span>
-            </div>
-            <div>
-              <span className="text-blue-700">Restock Threshold:</span>
-              <span className="ml-2 font-medium">{menuItem.restockThreshold}</span>
-            </div>
-            <div>
-              <span className="text-blue-700">Max Stock:</span>
-              <span className="ml-2 font-medium">{menuItem.maxStock || 'Unlimited'}</span>
-            </div>
+          <h4 className="font-medium text-blue-800 mb-2">Additional Information</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-blue-700">Location:</span>
-              <span className="ml-2 font-medium">{menuItem.location || 'Not specified'}</span>
+              <span className="ml-2 font-medium">{menuItem.location || 'Kitchen'}</span>
+            </div>
+            <div>
+              <span className="text-blue-700">Unit:</span>
+              <span className="ml-2 font-medium">{menuItem.unit || 'servings'}</span>
+            </div>
+            <div>
+              <span className="text-blue-700">Stock:</span>
+              <span className="ml-2 font-medium">{menuItem.currentStock || 1}</span>
             </div>
           </div>
         </div>

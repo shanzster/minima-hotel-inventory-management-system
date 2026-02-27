@@ -3,20 +3,22 @@
 import { useState, useEffect } from 'react'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
+import ImageUpload from './ImageUpload'
 import inventoryApi from '../../lib/inventoryApi'
 
 export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false }) {
   const [availableItems, setAvailableItems] = useState([])
   const [isLoadingItems, setIsLoadingItems] = useState(true)
   const [formData, setFormData] = useState({
-    inventoryItemId: '',
     name: '',
     description: '',
     category: 'main-course',
+    price: 0,
     preparationTime: 20,
-    requiredIngredients: []
+    requiredIngredients: [],
+    imageUrl: '',
+    imageMetadata: null
   })
-  const [selectedItem, setSelectedItem] = useState('')
   const [errors, setErrors] = useState({})
 
   // Load available inventory items for menu creation
@@ -50,26 +52,6 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
     { value: 'beverage', label: 'Beverage' }
   ]
 
-  const handleItemChange = (itemId) => {
-    const item = availableItems.find(i => i.id === itemId)
-    if (item) {
-      setSelectedItem(itemId)
-      setFormData(prev => ({
-        ...prev,
-        inventoryItemId: item.id,
-        name: item.name,
-        description: item.description || '',
-        // Auto-generate required ingredients based on selected item
-        requiredIngredients: [{
-          ingredientId: item.id,
-          quantityRequired: 1, // Default to 1 unit
-          unit: item.unit,
-          isCritical: true
-        }]
-      }))
-      setErrors(prev => ({ ...prev, inventoryItemId: '' }))
-    }
-  }
 
   const handleCategoryChange = (category) => {
     setFormData(prev => ({ ...prev, category }))
@@ -100,6 +82,20 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
       requiredIngredients: prev.requiredIngredients.map((ing, i) =>
         i === index ? { ...ing, quantityRequired: parseFloat(quantity) || 0 } : ing
       )
+    }))
+  }
+
+  const handleImageUpload = (imageData) => {
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: imageData.url,
+      imageMetadata: {
+        publicId: imageData.publicId,
+        width: imageData.width,
+        height: imageData.height,
+        size: imageData.size,
+        format: imageData.format
+      }
     }))
   }
 
@@ -135,10 +131,6 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
 
     const newErrors = {}
 
-    if (!formData.inventoryItemId) {
-      newErrors.inventoryItemId = 'Please select an inventory item'
-    }
-
     if (!formData.name.trim()) {
       newErrors.name = 'Menu item name is required'
     }
@@ -151,9 +143,19 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
       newErrors.preparationTime = 'Preparation time must be greater than 0'
     }
 
-    if (formData.requiredIngredients.length === 0) {
-      newErrors.ingredients = 'At least one ingredient is required'
+    if (formData.price < 0) {
+      newErrors.price = 'Price cannot be negative'
     }
+
+    if (formData.price < 0) {
+      newErrors.price = 'Price cannot be negative'
+    }
+
+    /*
+        if (formData.requiredIngredients.length === 0) {
+          newErrors.ingredients = 'At least one ingredient is required'
+        }
+    */
 
     // Validate ingredient quantities
     formData.requiredIngredients.forEach((ing, index) => {
@@ -167,12 +169,14 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
     if (Object.keys(newErrors).length === 0) {
       // Prepare the menu item data
       const menuItemData = {
-        inventoryItemId: formData.inventoryItemId,
         name: formData.name.trim(),
         description: formData.description.trim(),
         category: formData.category,
+        price: parseFloat(formData.price) || 0,
         preparationTime: parseInt(formData.preparationTime),
         requiredIngredients: formData.requiredIngredients,
+        imageUrl: formData.imageUrl || '',
+        imageMetadata: formData.imageMetadata || null,
         isAvailable: true, // New menu items start as available
         currentStock: 1, // Menu items have conceptual stock
         unit: 'servings',
@@ -187,43 +191,16 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }))
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      })
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Inventory Item Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Base Inventory Item *
-        </label>
-        <select
-          value={selectedItem}
-          onChange={(e) => handleItemChange(e.target.value)}
-          disabled={isLoadingItems}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent ${
-            isLoadingItems ? 'bg-gray-100 cursor-not-allowed' : ''
-          } ${errors.inventoryItemId ? 'border-red-500' : ''}`}
-        >
-          <option value="">
-            {isLoadingItems ? 'Loading inventory items...' : 'Select inventory item to create menu item from'}
-          </option>
-          {availableItems.map(item => (
-            <option key={item.id} value={item.id}>
-              {item.name} ({item.currentStock} {item.unit} available)
-            </option>
-          ))}
-        </select>
-        {errors.inventoryItemId && (
-          <p className="mt-1 text-sm text-red-600">{errors.inventoryItemId}</p>
-        )}
-        {availableItems.length === 0 && !isLoadingItems && (
-          <p className="mt-1 text-sm text-amber-600">
-            No inventory items available. Add items to inventory first.
-          </p>
-        )}
-      </div>
 
       {/* Menu Item Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,9 +219,8 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
           <select
             value={formData.category}
             onChange={(e) => handleCategoryChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent ${
-              errors.category ? 'border-red-500' : ''
-            }`}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent ${errors.category ? 'border-red-500' : ''
+              }`}
           >
             {menuCategories.map(cat => (
               <option key={cat.value} value={cat.value}>
@@ -265,6 +241,16 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
         placeholder="Optional description of the menu item"
       />
 
+      {/* Menu Item Image Upload */}
+      <div className="border-t pt-6">
+        <ImageUpload
+          onImageUpload={handleImageUpload}
+          imageUrl={formData.imageUrl}
+          imageAlt={formData.name || 'Menu Item'}
+          disabled={isLoading}
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="Preparation Time (minutes) *"
@@ -275,95 +261,19 @@ export default function AddMenuItemForm({ onSubmit, onCancel, isLoading = false 
           error={errors.preparationTime}
         />
 
-        <div className="flex items-end">
-          <Button
-            type="button"
-            onClick={addIngredient}
-            variant="outline"
-            className="w-full"
-            disabled={availableItems.length <= formData.requiredIngredients.length}
-          >
-            Add Ingredient
-          </Button>
-        </div>
+        <Input
+          label="Price (₱) *"
+          type="number"
+          value={formData.price}
+          onChange={(value) => updateField('price', parseFloat(value) || 0)}
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+          error={errors.price}
+        />
       </div>
 
-      {/* Required Ingredients */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Required Ingredients *
-        </label>
-        <div className="space-y-3">
-          {formData.requiredIngredients.map((ingredient, index) => {
-            const item = availableItems.find(i => i.id === ingredient.ingredientId)
-            return (
-              <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {item?.name || 'Unknown Item'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Available: {item?.currentStock || 0} {item?.unit || ''}
-                  </p>
-                </div>
 
-                <div className="w-24">
-                  <input
-                    type="number"
-                    value={ingredient.quantityRequired}
-                    onChange={(e) => handleIngredientQuantityChange(index, e.target.value)}
-                    min="0.01"
-                    step="0.01"
-                    className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-black ${
-                      errors[`ingredient_${index}`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Qty"
-                  />
-                </div>
-
-                <span className="text-sm text-gray-600 w-12">
-                  {ingredient.unit}
-                </span>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={ingredient.isCritical}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      requiredIngredients: prev.requiredIngredients.map((ing, i) =>
-                        i === index ? { ...ing, isCritical: e.target.checked } : ing
-                      )
-                    }))}
-                    className="rounded border-gray-300 text-black focus:ring-black"
-                  />
-                  <span className="ml-1 text-xs text-gray-600">Critical</span>
-                </label>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeIngredient(index)}
-                  className="text-red-600 hover:text-red-800"
-                >
-                  Remove
-                </Button>
-              </div>
-            )
-          })}
-        </div>
-
-        {formData.requiredIngredients.length === 0 && (
-          <p className="text-sm text-gray-500 italic">
-            No ingredients added yet. Click "Add Ingredient" to get started.
-          </p>
-        )}
-
-        {errors.ingredients && (
-          <p className="mt-1 text-sm text-red-600">{errors.ingredients}</p>
-        )}
-      </div>
 
       {/* Form Actions */}
       <div className="flex justify-end space-x-3 pt-6 border-t">
