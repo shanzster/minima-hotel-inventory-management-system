@@ -24,6 +24,7 @@ export default function SupplierForm({
   })
   
   const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   const validateForm = () => {
     const newErrors = {}
@@ -62,8 +63,10 @@ export default function SupplierForm({
     return Object.keys(newErrors).length === 0
   }
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (isSubmitting) return // Prevent double submission
     
     if (!validateForm()) {
       return
@@ -84,7 +87,14 @@ export default function SupplierForm({
       isApproved: supplier?.isApproved || false
     }
     
-    onSubmit(supplierData)
+    setIsSubmitting(true)
+    try {
+      await onSubmit(supplierData)
+    } catch (error) {
+      console.error('Error submitting supplier:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   
   const handleCategoryToggle = (category) => {
@@ -293,12 +303,15 @@ export default function SupplierForm({
           type="button"
           variant="secondary"
           onClick={onCancel}
+          disabled={isSubmitting}
         >
           Cancel
         </Button>
         <Button
           type="submit"
           variant="primary"
+          isLoading={isSubmitting}
+          disabled={isSubmitting}
         >
           {supplier ? 'Update Supplier' : 'Add Supplier'}
         </Button>

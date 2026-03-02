@@ -1244,8 +1244,8 @@ export default function DeliveriesPage() {
                       {/* Input Fields - Only enabled when checked */}
                       {item.checked && (
                         <>
-                          <div className="grid grid-cols-12 gap-3">
-                            <div className="col-span-3">
+                          <div className="grid grid-cols-12 gap-6">
+                            <div className="col-span-4">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Received Qty *
                               </label>
@@ -1287,21 +1287,6 @@ export default function DeliveriesPage() {
 
                             <div className="col-span-3">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Difference
-                              </label>
-                              <div className={`px-3 py-2 rounded-lg text-sm font-semibold ${item.receivedQuantity - item.orderedQuantity < 0
-                                ? 'bg-red-100 text-red-700'
-                                : item.receivedQuantity - item.orderedQuantity > 0
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-green-100 text-green-700'
-                                }`}>
-                                {item.receivedQuantity - item.orderedQuantity > 0 ? '+' : ''}
-                                {item.receivedQuantity - item.orderedQuantity}
-                              </div>
-                            </div>
-
-                            <div className="col-span-3">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Condition
                               </label>
                               <select
@@ -1326,6 +1311,21 @@ export default function DeliveriesPage() {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                                 placeholder="Optional"
                               />
+                            </div>
+
+                            <div className="col-span-2">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Diff
+                              </label>
+                              <div className={`px-2 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-center ${item.receivedQuantity - item.orderedQuantity < 0
+                                ? 'text-red-700'
+                                : item.receivedQuantity - item.orderedQuantity > 0
+                                  ? 'text-amber-700'
+                                  : 'text-green-700'
+                                }`}>
+                                {item.receivedQuantity - item.orderedQuantity > 0 ? '+' : ''}
+                                {item.receivedQuantity - item.orderedQuantity}
+                              </div>
                             </div>
                           </div>
 

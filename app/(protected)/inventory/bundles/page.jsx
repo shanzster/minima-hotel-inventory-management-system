@@ -99,27 +99,51 @@ export default function BundlesPage() {
     }
   }
 
-  const handleAssignBundle = (bundle, roomIds) => {
-    // Get current room-bundle assignments
-    const stored = localStorage.getItem('room_bundle_assignments')
-    let assignments = {}
-    if (stored) {
-      try {
-        assignments = JSON.parse(stored)
-      } catch (error) {
-        console.error('Error loading assignments:', error)
+  const handleAssignBundle = async (bundle, roomIds) => {
+    try {
+      // Get current room-bundle assignments
+      const stored = localStorage.getItem('room_bundle_assignments')
+      let assignments = {}
+      if (stored) {
+        try {
+          assignments = JSON.parse(stored)
+        } catch (error) {
+          console.error('Error loading assignments:', error)
+        }
       }
+
+      // Assign bundle to selected rooms (no stock deduction yet - happens when room is booked)
+      for (const roomId of roomIds) {
+        assignments[roomId] = bundle.id
+      }
+
+      // Save assignments
+      localStorage.setItem('room_bundle_assignments', JSON.stringify(assignments))
+      
+      toast.success(`Bundle "${bundle.name}" assigned to ${roomIds.length} room(s). Stock will be deducted when rooms are booked.`)
+    } catch (error) {
+      console.error('Error assigning bundle:', error)
+      toast.error('Failed to assign bundle')
+    }
+  }
+
+  const handleClearAllAssignments = () => {
+    if (!confirm('⚠️ Are you sure you want to remove ALL bundle assignments from all rooms? This cannot be undone.')) {
+      return
     }
 
-    // Assign bundle to selected rooms
-    roomIds.forEach(roomId => {
-      assignments[roomId] = bundle.id
-    })
-
-    // Save assignments
-    localStorage.setItem('room_bundle_assignments', JSON.stringify(assignments))
-    
-    toast.success(`Bundle "${bundle.name}" assigned to ${roomIds.length} room(s)`)
+    try {
+      // Clear room bundle assignments
+      localStorage.removeItem('room_bundle_assignments')
+      
+      // Clear bundle status
+      localStorage.removeItem('room_bundle_status')
+      
+      toast.success('All bundle assignments have been cleared from all rooms')
+    } catch (error) {
+      console.error('Error clearing assignments:', error)
+      toast.error('Failed to clear assignments')
+    }
   }
 
   return (
@@ -130,6 +154,7 @@ export default function BundlesPage() {
         onEditBundle={handleEditBundle}
         onDeleteBundle={handleDeleteBundle}
         onAssignBundle={handleAssignBundle}
+        onClearAllAssignments={handleClearAllAssignments}
       />
     </div>
   )

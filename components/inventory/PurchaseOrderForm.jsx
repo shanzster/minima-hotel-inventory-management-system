@@ -23,6 +23,7 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
   const [itemUnitCost, setItemUnitCost] = useState('')
   const [errors, setErrors] = useState({})
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Load suppliers on component mount
   useEffect(() => {
@@ -115,8 +116,10 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
   }
   
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (isSubmitting) return // Prevent double submission
     
     // Validate form
     const newErrors = {}
@@ -147,11 +150,18 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
     }
     
     // Submit the form
-    onSubmit({
-      ...formData,
-      totalAmount,
-      expectedDelivery: new Date(formData.expectedDelivery)
-    })
+    setIsSubmitting(true)
+    try {
+      await onSubmit({
+        ...formData,
+        totalAmount,
+        expectedDelivery: new Date(formData.expectedDelivery)
+      })
+    } catch (error) {
+      console.error('Error submitting purchase order:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
   
   return (
@@ -427,12 +437,15 @@ export default function PurchaseOrderForm({ onSubmit, onCancel, availableItems =
           type="button"
           onClick={onCancel}
           variant="ghost"
+          disabled={isSubmitting}
         >
           Cancel
         </Button>
         <Button
           type="submit"
           className="bg-black text-white hover:bg-gray-800"
+          isLoading={isSubmitting}
+          disabled={isSubmitting}
         >
           Create Purchase Order
         </Button>

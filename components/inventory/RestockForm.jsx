@@ -20,6 +20,7 @@ export default function RestockForm({
   })
 
   const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -68,8 +69,10 @@ export default function RestockForm({
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (isSubmitting) return // Prevent double submission
 
     if (!validateForm()) {
       return
@@ -88,7 +91,14 @@ export default function RestockForm({
       timestamp: new Date().toISOString()
     }
 
-    onSubmit(transaction)
+    setIsSubmitting(true)
+    try {
+      await onSubmit(transaction)
+    } catch (error) {
+      console.error('Error submitting restock:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const getFormTitle = () => {
@@ -247,12 +257,15 @@ export default function RestockForm({
           type="button"
           variant="secondary"
           onClick={onCancel}
+          disabled={isSubmitting}
         >
           Cancel
         </Button>
         <Button
           type="submit"
           variant="primary"
+          isLoading={isSubmitting}
+          disabled={isSubmitting}
         >
           {transactionType === 'stock-in' ? 'Add Stock' :
             transactionType === 'stock-out' ? 'Remove Stock' :

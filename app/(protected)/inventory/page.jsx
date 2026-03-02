@@ -447,7 +447,10 @@ export default function InventoryPage() {
       try {
         setIsLoading(true)
         const items = await inventoryApi.getAll()
-        let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+        // Filter out asset instances - only show master items
+        let nonAssignedItems = items.filter(item => 
+          item.type !== 'assigned-asset' && item.type !== 'asset-instance'
+        )
         
         // Filter to only Kitchen Storage items for kitchen staff
         if (isKitchenStaff) {
@@ -477,7 +480,9 @@ export default function InventoryPage() {
 
     // Set up real-time listener if using Firebase
     const unsubscribe = inventoryApi.onInventoryChange((items) => {
-      const nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+      const nonAssignedItems = items.filter(item => 
+        item.type !== 'assigned-asset' && item.type !== 'asset-instance'
+      )
       setInventoryItems(nonAssignedItems)
     })
 
@@ -708,7 +713,9 @@ export default function InventoryPage() {
 
         // Refresh the inventory data
         const items = await inventoryApi.getAll()
-        let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+        let nonAssignedItems = items.filter(item => 
+          item.type !== 'assigned-asset' && item.type !== 'asset-instance'
+        )
         
         // Filter to only Kitchen Storage items for kitchen staff
         if (isKitchenStaff) {
@@ -736,7 +743,9 @@ export default function InventoryPage() {
 
       // Refresh the inventory data
       const items = await inventoryApi.getAll()
-      let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+      let nonAssignedItems = items.filter(item => 
+        item.type !== 'assigned-asset' && item.type !== 'asset-instance'
+      )
       
       // Filter to only Kitchen Storage items for kitchen staff
       if (isKitchenStaff) {
@@ -761,7 +770,9 @@ export default function InventoryPage() {
 
       // Refresh the inventory data
       const items = await inventoryApi.getAll()
-      let nonAssignedItems = items.filter(item => item.type !== 'assigned-asset')
+      let nonAssignedItems = items.filter(item => 
+        item.type !== 'assigned-asset' && item.type !== 'asset-instance'
+      )
       
       // Filter to only Kitchen Storage items for kitchen staff
       if (isKitchenStaff) {

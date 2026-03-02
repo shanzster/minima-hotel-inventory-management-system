@@ -6,6 +6,7 @@ import Input from '../ui/Input'
 import Badge from '../ui/Badge'
 import StockIndicator from './StockIndicator'
 import Modal from '../ui/Modal'
+import ImageUpload from './ImageUpload'
 import inventoryApi from '../../lib/inventoryApi'
 import supplierApi from '../../lib/supplierApi'
 import { INVENTORY_CATEGORIES } from '../../lib/constants'
@@ -144,6 +145,13 @@ export default function ItemDetailsModal({
     setEditForm(prev => ({
       ...prev,
       [field]: value
+    }))
+  }
+
+  const handleImageUpload = (imageData) => {
+    setEditForm(prev => ({
+      ...prev,
+      imageUrl: imageData.url
     }))
   }
 
@@ -311,19 +319,31 @@ export default function ItemDetailsModal({
           </Modal>
         )}
 
-        {/* Product Image Display */}
-        {item.imageUrl && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Product Image</h3>
-            <div className="flex justify-center">
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="max-h-48 rounded-lg object-contain"
-              />
-            </div>
-          </div>
-        )}
+        {/* Product Image Upload/Display */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Product Image</h3>
+          {isEditing ? (
+            <ImageUpload
+              onImageUpload={handleImageUpload}
+              imageUrl={editForm.imageUrl}
+              imageAlt={item.name}
+            />
+          ) : (
+            item.imageUrl ? (
+              <div className="flex justify-center">
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="max-h-48 rounded-lg object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex justify-center items-center h-32 text-gray-400 text-sm">
+                No image available
+              </div>
+            )
+          )}
+        </div>
 
         {/* Item Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -521,65 +541,67 @@ export default function ItemDetailsModal({
           />
         </div>
 
-        {/* Multi-Batch Expiry Tracking Section */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Active Batches & Expiry Tracking
-            </h3>
-            <Badge variant="normal">{batches.length} active batches</Badge>
-          </div>
+        {/* Multi-Batch Expiry Tracking Section - Only show for consumables, not assets */}
+        {item.type !== 'asset' && item.type !== 'asset-instance' && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Active Batches & Expiry Tracking
+              </h3>
+              <Badge variant="normal">{batches.length} active batches</Badge>
+            </div>
 
-          <div className="overflow-hidden border border-slate-100 rounded-lg">
-            <table className="w-full text-left bg-white">
-              <thead className="bg-slate-100/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <tr>
-                  <th className="px-4 py-2">Batch #</th>
-                  <th className="px-4 py-2">Quantity</th>
-                  <th className="px-4 py-2">Expiration</th>
-                  <th className="px-4 py-2 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 italic">
-                {batches.length === 0 ? (
+            <div className="overflow-hidden border border-slate-100 rounded-lg">
+              <table className="w-full text-left bg-white">
+                <thead className="bg-slate-100/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                   <tr>
-                    <td colSpan="4" className="px-4 py-8 text-center text-slate-400 text-sm">
-                      {isFetchingBatches ? 'Loading batch data...' : 'No batch data available for this item.'}
-                    </td>
+                    <th className="px-4 py-2">Batch #</th>
+                    <th className="px-4 py-2">Quantity</th>
+                    <th className="px-4 py-2">Expiration</th>
+                    <th className="px-4 py-2 text-right">Status</th>
                   </tr>
-                ) : (
-                  batches.map((batch) => {
-                    const isExpired = batch.expirationDate && new Date(batch.expirationDate) < new Date()
-                    const isExpiringSoon = batch.expirationDate &&
-                      new Date(batch.expirationDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                </thead>
+                <tbody className="divide-y divide-slate-50 italic">
+                  {batches.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="px-4 py-8 text-center text-slate-400 text-sm">
+                        {isFetchingBatches ? 'Loading batch data...' : 'No batch data available for this item.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    batches.map((batch) => {
+                      const isExpired = batch.expirationDate && new Date(batch.expirationDate) < new Date()
+                      const isExpiringSoon = batch.expirationDate &&
+                        new Date(batch.expirationDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
-                    return (
-                      <tr key={batch.id} className="text-sm">
-                        <td className="px-4 py-3 font-mono text-xs">{batch.batchNumber || batch.id}</td>
-                        <td className="px-4 py-3 font-bold">{batch.quantity} {item.unit}</td>
-                        <td className="px-4 py-3">
-                          {batch.expirationDate ? new Date(batch.expirationDate).toLocaleDateString() : 'No expiry'}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {isExpired ? (
-                            <Badge variant="critical">EXPIRED</Badge>
-                          ) : isExpiringSoon ? (
-                            <Badge variant="warning">SOON</Badge>
-                          ) : (
-                            <Badge variant="success">HEALTHY</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+                      return (
+                        <tr key={batch.id} className="text-sm">
+                          <td className="px-4 py-3 font-mono text-xs">{batch.batchNumber || batch.id}</td>
+                          <td className="px-4 py-3 font-bold">{batch.quantity} {item.unit}</td>
+                          <td className="px-4 py-3">
+                            {batch.expirationDate ? new Date(batch.expirationDate).toLocaleDateString() : 'No expiry'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {isExpired ? (
+                              <Badge variant="critical">EXPIRED</Badge>
+                            ) : isExpiringSoon ? (
+                              <Badge variant="warning">SOON</Badge>
+                            ) : (
+                              <Badge variant="success">HEALTHY</Badge>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Timestamps */}
         <div className="border-t pt-4">

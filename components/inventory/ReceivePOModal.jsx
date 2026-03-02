@@ -228,24 +228,21 @@ export default function ReceivePOModal({
                         const shortage = item.orderedQuantity - (parseFloat(item.receivedQuantity) || 0)
 
                         return (
-                            <div key={id} className={`border rounded-xl p-4 transition-all ${item.isChecked ? 'border-indigo-100 bg-white shadow-sm' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
-                                <div className="flex items-start space-x-4">
+                            <div key={id} className={`relative border rounded-lg p-3 transition-all ${item.isChecked ? 'border-indigo-300 bg-white shadow-sm' : 'border-gray-200 bg-gray-50 opacity-60'}`}>
+                                <div className="flex items-start space-x-3">
                                     <input
                                         type="checkbox"
                                         checked={item.isChecked}
                                         onChange={() => toggleItem(id)}
-                                        className="mt-1.5 w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
                                     />
 
-                                    <div className="flex-1 space-y-3">
+                                    <div className="flex-1 space-y-2.5 min-w-0">
                                         <div className="flex justify-between items-start gap-3">
-                                            <div className="flex-1">
-                                                <h4 className="font-heading font-bold text-gray-900">{item.itemName}</h4>
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                    Unit Cost: {formatCurrency(item.unitCost)}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    Ordered: {item.orderedQuantity} • {formatCurrency(item.orderedQuantity * item.unitCost)}
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-heading font-bold text-gray-900 text-sm">{item.itemName}</h4>
+                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                    Unit Cost: {formatCurrency(item.unitCost)} • Ordered: {item.orderedQuantity}
                                                 </p>
                                             </div>
                                             {shortage !== 0 && item.isChecked && (
@@ -258,57 +255,57 @@ export default function ReceivePOModal({
                                         </div>
 
                                         {item.isChecked && (
-                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Received Qty *</label>
-                                                    <input
-                                                        type="number"
-                                                        value={item.receivedQuantity}
-                                                        onChange={(e) => handleInputChange(id, 'receivedQuantity', e.target.value)}
-                                                        className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-bold text-sm"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Difference</label>
-                                                    <div className={`px-3 py-2 rounded-lg font-bold text-sm ${
-                                                        shortage === 0 ? 'bg-gray-100 text-gray-600' :
-                                                        shortage > 0 ? 'bg-red-50 text-red-600' :
-                                                        'bg-green-50 text-green-600'
-                                                    }`}>
-                                                        {shortage === 0 ? '0' : shortage > 0 ? `-${shortage}` : `+${Math.abs(shortage)}`}
+                                            <>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                                    <div className="space-y-1 max-w-[120px]">
+                                                        <label className="text-[10px] font-bold text-gray-600 uppercase block">Received Qty *</label>
+                                                        <input
+                                                            type="number"
+                                                            value={item.receivedQuantity}
+                                                            onChange={(e) => handleInputChange(id, 'receivedQuantity', e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-bold text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1 max-w-[100px]">
+                                                        <label className="text-[10px] font-bold text-gray-600 uppercase block">Diff</label>
+                                                        <div className={`px-1.5 py-1.5 rounded border border-gray-300 text-xs font-bold text-center ${
+                                                            shortage === 0 ? 'text-gray-600' :
+                                                            shortage > 0 ? 'text-red-600' :
+                                                            'text-green-600'
+                                                        }`}>
+                                                            {shortage === 0 ? '0' : shortage > 0 ? `-${shortage}` : `+${Math.abs(shortage)}`}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-gray-600 uppercase block">Condition</label>
+                                                        <select
+                                                            value={item.condition || 'good'}
+                                                            onChange={(e) => handleInputChange(id, 'condition', e.target.value)}
+                                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                                        >
+                                                            <option value="good">Good</option>
+                                                            <option value="damaged">Damaged</option>
+                                                            <option value="partial">Partial</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-gray-600 uppercase block">Notes</label>
+                                                        <input
+                                                            type="text"
+                                                            value={item.notes || ''}
+                                                            onChange={(e) => handleInputChange(id, 'notes', e.target.value)}
+                                                            placeholder="Optional"
+                                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                                        />
                                                     </div>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Condition</label>
-                                                    <select
-                                                        value={item.condition || 'good'}
-                                                        onChange={(e) => handleInputChange(id, 'condition', e.target.value)}
-                                                        className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-                                                    >
-                                                        <option value="good">Good</option>
-                                                        <option value="damaged">Damaged</option>
-                                                        <option value="partial">Partial</option>
-                                                    </select>
+                                                
+                                                <div className="pt-1.5 border-t border-gray-200">
+                                                    <p className="text-xs font-bold text-gray-700">
+                                                        Received Total: {formatCurrency((parseFloat(item.receivedQuantity) || 0) * item.unitCost)}
+                                                    </p>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-gray-500 uppercase">Notes</label>
-                                                    <input
-                                                        type="text"
-                                                        value={item.notes || ''}
-                                                        onChange={(e) => handleInputChange(id, 'notes', e.target.value)}
-                                                        placeholder="Optional"
-                                                        className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        {item.isChecked && (
-                                            <div className="pt-2 border-t border-gray-100">
-                                                <p className="text-sm font-bold text-gray-700">
-                                                    Received Total: {formatCurrency((parseFloat(item.receivedQuantity) || 0) * item.unitCost)}
-                                                </p>
-                                            </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>

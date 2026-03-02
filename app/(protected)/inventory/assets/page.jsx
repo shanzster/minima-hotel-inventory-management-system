@@ -867,49 +867,114 @@ export default function AssetsPage() {
             try {
               let totalChanges = 0
 
-              // Handle new assets - create asset instances instead of new items
-              for (const assetData of result.newAssets) {
-                // Find the master item by name
-                const allItems = await inventoryApi.getAll()
-                const masterItem = allItems.find(item => 
-                  item.name === assetData.name && 
-                  (item.category === 'equipment' || item.category === 'furniture') &&
-                  item.type !== 'asset-instance'
-                )
+              console.log('Starting asset assignment...', result)
 
-                if (masterItem) {
-                  // Create asset instance referencing the master item
-                  await inventoryApi.createAssetInstance(masterItem.id, {
-                    room: assetData.room,
-                    roomId: assetData.roomId,
-                    location: assetData.location,
-                    condition: assetData.condition,
-                    serialNumber: assetData.serialNumber,
-                    notes: assetData.notes
-                  })
-                } else {
-                  console.warn(`Master item not found for: ${assetData.name}`)
+              // Handle new assets - create asset instances and decrease stock
+              for (const assetData of result.newAssets) {
+                try {
+                  console.log('Processing new asset:', assetData.name)
+                  
+                  // Find the master item by name
+                  const allItems = await inventoryApi.getAll()
+                  const masterItem = allItems.find(item => 
+                    item.name === assetData.name && 
+                    (item.category === 'equipment' || item.category === 'furniture') &&
+                    item.type !== 'asset-instance'
+                  )
+
+                  if (masterItem) {
+                    console.log('Found master item:', masterItem.name, 'Stock:', masterItem.currentStock)
+                    
+                    // Check if there's enough stock
+                    if (masterItem.currentStock <= 0) {
+                      console.error(`No stock available for ${masterItem.name}`)
+                      toast.error(`No stock available for ${masterItem.name}`)
+                      continue
+                    }
+
+                    // Create asset instance referencing the master item
+                    console.log('Creating asset instance...')
+                    await inventoryApi.createAssetInstance(masterItem.id, {
+                      room: assetData.room,
+                      roomId: assetData.roomId,
+                      location: assetData.location,
+                      condition: assetData.condition,
+                      serialNumber: assetData.serialNumber,
+                      notes: assetData.notes
+                    })
+
+                    // Decrease stock by 1 for the master item
+                    console.log('Decreasing stock...')
+                    await inventoryApi.updateStock(masterItem.id, -1, {
+                      type: 'stock-out',
+                      reason: 'asset-assignment',
+                      notes: `Assigned to ${assetData.room}`
+                    })
+
+                    totalChanges++
+                    console.log('Successfully assigned:', assetData.name)
+                  } else {
+                    console.error(`Master item not found for: ${assetData.name}`)
+                    toast.error(`Master item not found for: ${assetData.name}`)
+                  }
+                } catch (error) {
+                  console.error(`Error processing asset ${assetData.name}:`, error)
+                  toast.error(`Failed to assign ${assetData.name}: ${error.message}`)
                 }
-                totalChanges++
               }
 
               // Handle edited assets
               for (const editedAsset of result.editedAssets) {
-                await inventoryApi.update(editedAsset.id, {
-                  condition: editedAsset.condition
-                })
-                totalChanges++
+                try {
+                  console.log('Updating asset condition:', editedAsset.id)
+                  await inventoryApi.update(editedAsset.id, {
+                    condition: editedAsset.condition
+                  })
+                  totalChanges++
+                } catch (error) {
+                  console.error('Error updating asset:', error)
+                  toast.error(`Failed to update asset: ${error.message}`)
+                }
               }
 
-              // Handle removed assets
+              // Handle removed assets - delete instance and increase stock
               for (const assetId of result.removedAssetIds) {
-                await inventoryApi.delete(assetId)
-                totalChanges++
+                try {
+                  console.log('Removing asset:', assetId)
+                  
+                  // Get the asset instance to find the master item
+                  const assetInstance = await inventoryApi.getById(assetId)
+                  
+                  if (assetInstance && assetInstance.masterItemId) {
+                    console.log('Increasing stock for master item:', assetInstance.masterItemId)
+                    
+                    // Increase stock for the master item
+                    await inventoryApi.updateStock(assetInstance.masterItemId, 1, {
+                      type: 'stock-in',
+                      reason: 'asset-unassignment',
+                      notes: `Unassigned from ${assetInstance.room}`
+                    })
+                  }
+
+                  // Delete the asset instance
+                  await inventoryApi.delete(assetId)
+                  totalChanges++
+                  console.log('Successfully removed asset')
+                } catch (error) {
+                  console.error('Error removing asset:', error)
+                  toast.error(`Failed to remove asset: ${error.message}`)
+                }
+              }
+
+              if (totalChanges === 0) {
+                toast.warning('No changes were made')
+                return
               }
 
               setShowAddAssetModal(false)
               
               // Reload assets
+              console.log('Reloading assets...')
               const allItems = await inventoryApi.getAll()
               const assetItems = allItems.filter(item =>
                 item.type === 'asset-instance'
@@ -917,9 +982,10 @@ export default function AssetsPage() {
               setAssets(assetItems)
               
               toast.success(`Successfully saved ${totalChanges} change(s)`)
+              console.log('Asset assignment completed successfully')
             } catch (error) {
-              console.error('Error saving changes:', error)
-              toast.error('Failed to save changes. Please try again.')
+              console.error('Error in asset assignment:', error)
+              toast.error(`Failed to save changes: ${error.message}`)
             }
           }}
           onCancel={() => setShowAddAssetModal(false)}

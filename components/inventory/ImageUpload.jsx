@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import ImageEditor from './ImageEditor'
 
 export default function ImageUpload({ onImageUpload, imageUrl, imageAlt = 'Product', disabled = false }) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+  const [showEditor, setShowEditor] = useState(false)
+  const [tempImageUrl, setTempImageUrl] = useState(null)
   const fileInputRef = useRef(null)
 
   const cloudinaryCloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -46,7 +49,15 @@ export default function ImageUpload({ onImageUpload, imageUrl, imageAlt = 'Produ
       return
     }
 
-    await uploadImage(file)
+    // Create temporary URL for editor
+    const tempUrl = URL.createObjectURL(file)
+    setTempImageUrl(tempUrl)
+    setShowEditor(true)
+  }
+
+  const handleEditorSave = async (editedFile) => {
+    await uploadImage(editedFile)
+    setTempImageUrl(null)
   }
 
   const uploadImage = async (file) => {
@@ -132,13 +143,25 @@ export default function ImageUpload({ onImageUpload, imageUrl, imageAlt = 'Produ
             className="w-full h-full object-cover"
           />
           {!isUploading && !disabled && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity"
-            >
-              <span className="text-white text-sm font-medium">Change Image</span>
-            </button>
+            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100"
+              >
+                Change Image
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempImageUrl(imageUrl)
+                  setShowEditor(true)
+                }}
+                className="px-3 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100"
+              >
+                Edit Image
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -215,6 +238,17 @@ export default function ImageUpload({ onImageUpload, imageUrl, imageAlt = 'Produ
           <p className="text-sm text-red-800">{uploadError}</p>
         </div>
       )}
+
+      {/* Image Editor Modal */}
+      <ImageEditor
+        isOpen={showEditor}
+        onClose={() => {
+          setShowEditor(false)
+          setTempImageUrl(null)
+        }}
+        imageUrl={tempImageUrl}
+        onSave={handleEditorSave}
+      />
     </div>
   )
 }

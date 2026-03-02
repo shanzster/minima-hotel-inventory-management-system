@@ -11,15 +11,28 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [validationErrors, setValidationErrors] = useState({})
   
-  const { login, error, isAuthenticated } = useAuth()
+  const { login, error, isAuthenticated, user } = useAuth()
   const router = useRouter()
 
-  // Redirect if already authenticated
+  // Redirect based on user role if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard')
+    if (isAuthenticated && user) {
+      // Role-based redirection
+      switch (user.role) {
+        case 'inventory-controller':
+          router.push('/dashboard')
+          break
+        case 'kitchen-staff':
+          router.push('/dashboard/kitchen')
+          break
+        case 'purchasing-officer':
+          router.push('/dashboard/purchasing')
+          break
+        default:
+          router.push('/dashboard')
+      }
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, user, router])
 
   const validateForm = () => {
     const errors = {}
@@ -50,8 +63,22 @@ export default function LoginPage() {
     setIsSubmitting(true)
     
     try {
-      await login(email, password)
-      router.push('/dashboard')
+      const authenticatedUser = await login(email, password)
+      
+      // Role-based redirection
+      switch (authenticatedUser.role) {
+        case 'inventory-controller':
+          router.push('/dashboard')
+          break
+        case 'kitchen-staff':
+          router.push('/dashboard/kitchen')
+          break
+        case 'purchasing-officer':
+          router.push('/dashboard/purchasing')
+          break
+        default:
+          router.push('/dashboard')
+      }
     } catch (err) {
       // Error is handled by useAuth hook
       console.error('Login failed:', err)
@@ -61,23 +88,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--whitesmoke)' }}>
-      {/* Background with subtle texture */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="h-full w-full" style={{ 
-          backgroundImage: `radial-gradient(circle at 1px 1px, var(--gray-300) 1px, transparent 0)`,
-          backgroundSize: '32px 32px'
-        }}></div>
-      </div>
-      
+    <div className="min-h-screen" style={{ backgroundColor: '#FFFFFF' }}>
       {/* Main content */}
       <div className="relative flex items-center justify-center min-h-screen px-6 py-12">
         <div className="w-full max-w-sm">
           {/* Logo/Brand area */}
           <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-full" 
-                 style={{ backgroundColor: 'var(--accent-sand)' }}>
-              <div className="w-8 h-8 rounded-sm" style={{ backgroundColor: 'var(--black)' }}></div>
+            <div className="inline-flex items-center justify-center mb-6">
+              <img 
+                src="/icons/images/minima-logo.png" 
+                alt="Minima Hotel Logo" 
+                className="w-24 h-24 object-contain"
+              />
             </div>
             <h1 className="text-2xl font-heading font-medium mb-2" style={{ color: 'var(--black)' }}>
               Minima Hotel

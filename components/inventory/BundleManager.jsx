@@ -6,7 +6,7 @@ import Modal from '../ui/Modal'
 import roomsApi from '../../lib/roomsApi'
 import { inventoryApi } from '../../lib/inventoryApi'
 
-export default function BundleManager({ bundles = [], onCreateBundle, onEditBundle, onDeleteBundle, onAssignBundle }) {
+export default function BundleManager({ bundles = [], onCreateBundle, onEditBundle, onDeleteBundle, onAssignBundle, onClearAllAssignments }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [selectedBundle, setSelectedBundle] = useState(null)
@@ -21,6 +21,9 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
   const [loadingRooms, setLoadingRooms] = useState(false)
   const [inventoryItems, setInventoryItems] = useState([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [assignStep, setAssignStep] = useState(1) // 1: Category, 2: Rooms
+  const [selectedRoomCategory, setSelectedRoomCategory] = useState('')
+  const [roomBundleAssignments, setRoomBundleAssignments] = useState({}) // Track which rooms have bundles
 
   const bundleTypes = [
     { value: 'standard', label: 'Standard Room Kit', icon: '🛏️' },
@@ -29,12 +32,71 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
     { value: 'custom', label: 'Custom Bundle', icon: '📦' }
   ]
 
-  // Load rooms when assign modal opens
-  useEffect(() => {
-    if (showAssignModal) {
-      loadRooms()
+  // Room categories with SVG icons
+  const roomCategories = [
+    { 
+      value: 'standard', 
+      label: 'Standard Room', 
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      )
+    },
+    { 
+      value: 'deluxe', 
+      label: 'Deluxe Room', 
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+      )
+    },
+    { 
+      value: 'suite', 
+      label: 'Suite', 
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      )
+    },
+    { 
+      value: 'presidential', 
+      label: 'Presidential Suite', 
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        </svg>
+      )
+    },
+    { 
+      value: 'conference', 
+      label: 'Conference Room', 
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
+    },
+    { 
+      value: 'common', 
+      label: 'Common Area', 
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+        </svg>
+      )
     }
-  }, [showAssignModal])
+  ]
+
+  // Load rooms when category is selected
+  useEffect(() => {
+    if (showAssignModal && selectedRoomCategory && assignStep === 2) {
+      loadRoomsByCategory()
+      loadRoomBundleAssignments()
+    }
+  }, [showAssignModal, selectedRoomCategory, assignStep])
 
   // Load inventory items when create modal opens
   useEffect(() => {
@@ -47,9 +109,18 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
     try {
       setLoadingItems(true)
       const items = await inventoryApi.getAll()
-      // Filter to only show master items (not asset instances)
-      const masterItems = items.filter(item => item.type !== 'asset-instance')
-      setInventoryItems(masterItems)
+      // Filter to only show consumable items (exclude equipment, furniture, and asset instances)
+      const consumableItems = items.filter(item => {
+        // Exclude asset instances
+        if (item.type === 'asset-instance') return false
+        
+        // Exclude equipment and furniture
+        if (item.category === 'equipment' || item.category === 'furniture') return false
+        
+        // Include everything else (consumables, toiletries, supplies, or items without category)
+        return true
+      })
+      setInventoryItems(consumableItems)
     } catch (error) {
       console.error('Error loading inventory items:', error)
     } finally {
@@ -57,11 +128,14 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
     }
   }
 
-  const loadRooms = async () => {
+  const loadRoomsByCategory = async () => {
     try {
       setLoadingRooms(true)
       const allRooms = await roomsApi.getAll()
-      setRooms(allRooms)
+      const filtered = allRooms.filter(room => 
+        room.type?.toLowerCase().includes(selectedRoomCategory.toLowerCase())
+      )
+      setRooms(filtered)
     } catch (error) {
       console.error('Error loading rooms:', error)
     } finally {
@@ -69,7 +143,24 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
     }
   }
 
+  const loadRoomBundleAssignments = () => {
+    try {
+      const stored = localStorage.getItem('room_bundle_assignments')
+      if (stored) {
+        setRoomBundleAssignments(JSON.parse(stored))
+      }
+    } catch (error) {
+      console.error('Error loading room bundle assignments:', error)
+    }
+  }
+
   const handleToggleRoom = (roomId) => {
+    // Check if room already has a bundle
+    if (roomBundleAssignments[roomId]) {
+      // Don't allow toggling if room already has a bundle
+      return
+    }
+    
     setSelectedRooms(prev => 
       prev.includes(roomId) 
         ? prev.filter(id => id !== roomId)
@@ -85,6 +176,8 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
     setShowAssignModal(false)
     setSelectedBundle(null)
     setSelectedRooms([])
+    setAssignStep(1)
+    setSelectedRoomCategory('')
   }
 
   const handleAddItem = () => {
@@ -157,15 +250,28 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
           <h2 className="text-xl font-bold text-gray-900">Bundle Management</h2>
           <p className="text-sm text-gray-600">Create and manage toiletry bundles for quick room setup</p>
         </div>
-        <Button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-black text-white hover:bg-gray-800"
-        >
-          <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create Bundle
-        </Button>
+        <div className="flex items-center space-x-3">
+          {onClearAllAssignments && (
+            <Button
+              onClick={onClearAllAssignments}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear All Assignments
+            </Button>
+          )}
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-black text-white hover:bg-gray-800"
+          >
+            <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create Bundle
+          </Button>
+        </div>
       </div>
 
       {/* Bundles Grid */}
@@ -289,7 +395,8 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
 
           {/* Add Items */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Bundle Items</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Bundle Items (Consumables Only)</label>
+            <p className="text-xs text-gray-500 mb-3">Add toiletries, amenities, and other consumable items to this bundle</p>
             <div className="flex space-x-2 mb-3">
               <select
                 value={selectedItemId}
@@ -298,7 +405,7 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
                 disabled={loadingItems}
               >
                 <option value="">
-                  {loadingItems ? 'Loading items...' : 'Select an item'}
+                  {loadingItems ? 'Loading items...' : inventoryItems.length === 0 ? 'No consumable items available' : 'Select an item'}
                 </option>
                 {inventoryItems.map(item => (
                   <option key={item.id} value={item.id}>
@@ -381,6 +488,8 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
             setShowAssignModal(false)
             setSelectedBundle(null)
             setSelectedRooms([])
+            setAssignStep(1)
+            setSelectedRoomCategory('')
           }}
           title={`Assign ${selectedBundle.name}`}
           size="lg"
@@ -398,85 +507,193 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
               </div>
             </div>
 
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-3">Select Rooms</h4>
-              {loadingRooms ? (
-                <div className="text-center py-8 text-gray-500">Loading rooms...</div>
-              ) : (
-                <div className="max-h-96 overflow-y-auto space-y-3">
-                  {Object.entries(
-                    rooms.reduce((acc, room) => {
-                      const floor = room.floor || 1
-                      if (!acc[floor]) acc[floor] = []
-                      acc[floor].push(room)
-                      return acc
-                    }, {})
-                  ).sort(([a], [b]) => b - a).map(([floor, floorRooms]) => (
-                    <div key={floor} className="space-y-2">
-                      <div className="bg-gray-100 px-3 py-1 rounded text-sm font-semibold text-gray-700">
-                        Floor {floor}
-                      </div>
-                      <div className="grid grid-cols-4 gap-2">
-                        {floorRooms.map(room => {
-                          const roomNum = room.roomNumber || room.number
-                          const isSelected = selectedRooms.includes(room.id)
-                          
-                          return (
-                            <button
-                              key={room.id}
-                              onClick={() => handleToggleRoom(room.id)}
-                              className={`p-3 rounded-lg border-2 transition-all ${
-                                isSelected
-                                  ? 'border-purple-500 bg-purple-50'
-                                  : 'border-gray-200 bg-white hover:border-gray-300'
-                              }`}
-                            >
-                              <div className="flex flex-col items-center space-y-1">
-                                {isSelected && (
-                                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                                <span className="text-sm font-bold text-gray-900">{roomNum}</span>
-                                <span className="text-xs text-gray-500">{room.type}</span>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
+            {/* Step 1: Select Room Category */}
+            {assignStep === 1 && (
+              <div className="space-y-4">
+                <div className="text-center pb-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Step 1: Select Room Category</h3>
+                  <p className="text-sm text-gray-600">Choose the type of room you want to assign this bundle to</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {roomCategories.map(category => (
+                    <button
+                      key={category.value}
+                      onClick={() => {
+                        setSelectedRoomCategory(category.value)
+                        setAssignStep(2)
+                      }}
+                      className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all group"
+                    >
+                      <div className="text-purple-600 mb-3 flex justify-center">{category.icon}</div>
+                      <h4 className="font-semibold text-gray-900 group-hover:text-purple-600">{category.label}</h4>
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
 
-            {selectedRooms.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-700">
-                  <span className="font-semibold">{selectedRooms.length}</span> room(s) selected
-                </p>
+                <div className="flex justify-end pt-4 border-t">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowAssignModal(false)
+                      setSelectedBundle(null)
+                      setSelectedRooms([])
+                      setAssignStep(1)
+                      setSelectedRoomCategory('')
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             )}
 
-            <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowAssignModal(false)
-                  setSelectedBundle(null)
-                  setSelectedRooms([])
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAssignBundle}
-                disabled={selectedRooms.length === 0}
-                className="bg-black text-white hover:bg-gray-800"
-              >
-                Assign to {selectedRooms.length} Room(s)
-              </Button>
-            </div>
+            {/* Step 2: Select Rooms */}
+            {assignStep === 2 && (
+              <div className="space-y-4">
+                <div className="text-center pb-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Step 2: Select Rooms</h3>
+                  <p className="text-sm text-gray-600">
+                    {roomCategories.find(c => c.value === selectedRoomCategory)?.label} - Choose one or more rooms
+                  </p>
+                  {selectedRooms.length > 0 && (
+                    <div className="mt-3">
+                      <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                        {selectedRooms.length} room{selectedRooms.length !== 1 ? 's' : ''} selected
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {Object.keys(roomBundleAssignments).length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm text-blue-800">
+                        Rooms with existing bundles are disabled and shown with a lock icon. Remove the existing bundle first to assign a new one.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {loadingRooms ? (
+                  <div className="text-center py-8 text-gray-500">Loading rooms...</div>
+                ) : rooms.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <p>No rooms found for this category</p>
+                  </div>
+                ) : (
+                  <div className="max-h-96 overflow-y-auto space-y-3">
+                    {Object.entries(
+                      rooms.reduce((acc, room) => {
+                        const floor = room.floor || 1
+                        if (!acc[floor]) acc[floor] = []
+                        acc[floor].push(room)
+                        return acc
+                      }, {})
+                    ).sort(([a], [b]) => b - a).map(([floor, floorRooms]) => (
+                      <div key={floor} className="space-y-2">
+                        <div className="bg-gray-100 px-3 py-1 rounded text-sm font-semibold text-gray-700">
+                          Floor {floor}
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {floorRooms.map(room => {
+                            const roomNum = room.roomNumber || room.number
+                            const isSelected = selectedRooms.includes(room.id)
+                            const hasBundle = !!roomBundleAssignments[room.id]
+                            
+                            return (
+                              <div key={room.id} className="relative">
+                                {hasBundle && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (window.confirm(`Remove bundle from Room ${roomNum}?`)) {
+                                        const updatedAssignments = { ...roomBundleAssignments }
+                                        delete updatedAssignments[room.id]
+                                        localStorage.setItem('room_bundle_assignments', JSON.stringify(updatedAssignments))
+                                        
+                                        // Also remove bundle status
+                                        const storedStatus = localStorage.getItem('room_bundle_status')
+                                        if (storedStatus) {
+                                          const statusData = JSON.parse(storedStatus)
+                                          delete statusData[room.id]
+                                          localStorage.setItem('room_bundle_status', JSON.stringify(statusData))
+                                        }
+                                        
+                                        // Reload assignments
+                                        loadRoomBundleAssignments()
+                                      }
+                                    }}
+                                    className="absolute -top-1 -right-1 p-1 bg-red-500 rounded-full shadow-md hover:bg-red-600 transition-all z-10"
+                                    title="Remove bundle"
+                                  >
+                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleToggleRoom(room.id)}
+                                  disabled={hasBundle}
+                                  className={`w-full p-3 rounded-lg border-2 transition-all ${
+                                    hasBundle
+                                      ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
+                                      : isSelected
+                                      ? 'border-purple-500 bg-purple-50'
+                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                  }`}
+                                >
+                                  <div className="flex flex-col items-center space-y-1">
+                                    {hasBundle ? (
+                                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                      </svg>
+                                    ) : isSelected ? (
+                                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : (
+                                      <div className="w-5 h-5"></div>
+                                    )}
+                                    <span className="text-sm font-bold text-gray-900">{roomNum}</span>
+                                    <span className="text-xs text-gray-500">{room.type}</span>
+                                    {hasBundle && (
+                                      <span className="text-xs text-gray-500 font-medium">Has Bundle</span>
+                                    )}
+                                  </div>
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-4 border-t">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setAssignStep(1)
+                      setSelectedRooms([])
+                    }}
+                  >
+                    Back to Categories
+                  </Button>
+                  <Button
+                    onClick={handleAssignBundle}
+                    disabled={selectedRooms.length === 0}
+                    className="bg-black text-white hover:bg-gray-800"
+                  >
+                    Assign to {selectedRooms.length} Room(s)
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </Modal>
       )}

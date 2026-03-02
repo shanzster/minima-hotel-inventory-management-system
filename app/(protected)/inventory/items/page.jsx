@@ -272,6 +272,23 @@ export default function ItemsPage() {
     document.body.removeChild(link)
   }
 
+  // Export to Excel with images
+  const [isExporting, setIsExporting] = useState(false)
+  
+  const exportToExcel = async () => {
+    try {
+      setIsExporting(true)
+      // Dynamic import to avoid SSR issues
+      const { exportInventoryToExcel } = await import('../../../../lib/excelExport')
+      await exportInventoryToExcel(filteredItems, getSupplierName)
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+      alert('Failed to export to Excel. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   // Print function
   const handlePrint = () => {
     const printWindow = window.open('', '_blank')
@@ -286,6 +303,10 @@ export default function ItemsPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+
+    // Get unique categories
+    const uniqueCategories = [...new Set(filteredItems.map(item => item.category))].length
+    const categoriesList = [...new Set(filteredItems.map(item => item.category))].join(', ')
 
     const printHTML = `
       <!DOCTYPE html>
@@ -400,7 +421,7 @@ export default function ItemsPage() {
             </div>
             <div>
               <strong>Total Items:</strong> ${filteredItems.length}<br>
-              <strong>Categories:</strong> ${categories}
+              <strong>Categories:</strong> ${uniqueCategories}
             </div>
           </div>
           
@@ -417,10 +438,10 @@ export default function ItemsPage() {
             <tbody>
               ${filteredItems.map(item => `
                 <tr>
-                  <td><strong>${item.name}</strong></td>
+                  <td><strong>${item.name || '-'}</strong></td>
                   <td>${item.sku || '-'}</td>
-                  <td><span class="badge">${item.category.replace('-', ' ')}</span></td>
-                  <td>${item.unit}</td>
+                  <td><span class="badge">${item.category ? item.category.replace('-', ' ') : '-'}</span></td>
+                  <td>${item.unit || '-'}</td>
                   <td>${item.description || '-'}</td>
                 </tr>
               `).join('')}
@@ -441,7 +462,6 @@ export default function ItemsPage() {
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.print()
-        printWindow.close()
       }, 250)
     }
   }
@@ -688,15 +708,28 @@ export default function ItemsPage() {
                 Print
               </button>
 
-              {/* Export to CSV Button */}
+              {/* Export to Excel Button */}
               <button
-                onClick={exportToCSV}
-                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out"
+                onClick={exportToExcel}
+                disabled={isExporting}
+                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 hover:shadow-lg hover:scale-105 transition-all duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export CSV
+                {isExporting ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4 mr-2 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Excel
+                  </>
+                )}
               </button>
             </div>
           </div>
