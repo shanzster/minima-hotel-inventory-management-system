@@ -10,7 +10,7 @@ import BottomNavigation from '../../components/layout/BottomNavigation'
 import { PageTitleProvider } from '../../hooks/usePageTitle'
 
 export default function ProtectedLayout({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -18,8 +18,16 @@ export default function ProtectedLayout({ children }) {
     // Only redirect if we're not loading and user is not authenticated
     if (!loading && !isAuthenticated) {
       router.push('/login')
+      return
     }
-  }, [isAuthenticated, loading, router])
+
+    // Redirect housekeeping users to housekeeping page if they try to access other pages
+    if (!loading && isAuthenticated && user?.role === 'housekeeping') {
+      if (pathname !== '/housekeeping' && pathname !== '/help' && pathname !== '/settings') {
+        router.push('/housekeeping')
+      }
+    }
+  }, [isAuthenticated, loading, user, pathname, router])
 
   // Show loading state while checking authentication
   if (loading) {

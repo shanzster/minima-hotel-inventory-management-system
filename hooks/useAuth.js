@@ -14,24 +14,7 @@ export function useAuth() {
 
   useEffect(() => {
     // Check for existing user on mount
-    let currentUser = getCurrentUser()
-
-    // Check if user has manually logged out (don't auto-login)
-    const hasLoggedOut = typeof window !== 'undefined' &&
-                        localStorage.getItem('hasLoggedOut') === 'true'
-
-    // Auto-login as purchasing officer for development (only if not manually logged out)
-    if (!currentUser && !hasLoggedOut && process.env.NODE_ENV === 'development') {
-      const devUser = {
-        id: '3',
-        email: 'purchasing@minima.com',
-        name: 'Mike Purchasing',
-        role: 'purchasing-officer'
-      }
-      setCurrentUser(devUser)
-      currentUser = devUser
-    }
-
+    const currentUser = getCurrentUser()
     setUser(currentUser)
     setLoading(false)
   }, [])

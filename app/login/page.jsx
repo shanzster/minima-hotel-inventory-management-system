@@ -19,6 +19,9 @@ export default function LoginPage() {
     if (isAuthenticated && user) {
       // Role-based redirection
       switch (user.role) {
+        case 'housekeeping':
+          router.push('/housekeeping')
+          break
         case 'inventory-controller':
           router.push('/dashboard')
           break
@@ -27,6 +30,9 @@ export default function LoginPage() {
           break
         case 'purchasing-officer':
           router.push('/dashboard/purchasing')
+          break
+        case 'admin':
+          router.push('/dashboard')
           break
         default:
           router.push('/dashboard')
@@ -67,6 +73,9 @@ export default function LoginPage() {
       
       // Role-based redirection
       switch (authenticatedUser.role) {
+        case 'housekeeping':
+          router.push('/housekeeping')
+          break
         case 'inventory-controller':
           router.push('/dashboard')
           break
@@ -75,6 +84,9 @@ export default function LoginPage() {
           break
         case 'purchasing-officer':
           router.push('/dashboard/purchasing')
+          break
+        case 'admin':
+          router.push('/dashboard')
           break
         default:
           router.push('/dashboard')
@@ -101,10 +113,10 @@ export default function LoginPage() {
                 className="w-24 h-24 object-contain"
               />
             </div>
-            <h1 className="text-2xl font-heading font-medium mb-2" style={{ color: 'var(--black)' }}>
+            <h1 className="text-2xl font-heading font-bold mb-2" style={{ color: 'var(--black)' }}>
               Minima Hotel
             </h1>
-            <p className="text-sm" style={{ color: 'var(--gray-500)' }}>
+            <p className="text-sm font-bold" style={{ color: 'var(--gray-500)' }}>
               Inventory Management System
             </p>
           </div>
@@ -137,7 +149,7 @@ export default function LoginPage() {
                   placeholder="your@email.com"
                   disabled={isSubmitting}
                   style={{ 
-                    fontFamily: 'var(--font-body)',
+                    fontFamily: 'var(--font-global)',
                     backgroundColor: validationErrors.email ? '#fef2f2' : 'white'
                   }}
                 />
@@ -166,7 +178,7 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     disabled={isSubmitting}
                     style={{ 
-                      fontFamily: 'var(--font-body)',
+                      fontFamily: 'var(--font-global)',
                       backgroundColor: validationErrors.password ? '#fef2f2' : 'white'
                     }}
                   />
@@ -200,7 +212,7 @@ export default function LoginPage() {
                 style={{ 
                   backgroundColor: isSubmitting ? 'var(--gray-500)' : 'var(--black)',
                   color: 'white',
-                  fontFamily: 'var(--font-body)'
+                  fontFamily: 'var(--font-global)'
                 }}
                 onMouseEnter={(e) => {
                   if (!isSubmitting) {
@@ -226,32 +238,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-          </div>
-          
-          {/* Demo accounts info */}
-          <div className="mt-8 text-center">
-            <div className="inline-block px-6 py-4 rounded-lg border border-gray-200 bg-white/50 backdrop-blur-sm">
-              <p className="text-xs font-medium mb-3" style={{ color: 'var(--gray-700)' }}>
-                Demo Accounts
-              </p>
-              <div className="space-y-2 text-xs" style={{ color: 'var(--gray-500)' }}>
-                <div>
-                  <span className="font-medium">controller@minima.com</span>
-                  <span className="block text-xs opacity-75">Inventory Controller</span>
-                </div>
-                <div>
-                  <span className="font-medium">kitchen@minima.com</span>
-                  <span className="block text-xs opacity-75">Kitchen Staff</span>
-                </div>
-                <div>
-                  <span className="font-medium">purchasing@minima.com</span>
-                  <span className="block text-xs opacity-75">Purchasing Officer</span>
-                </div>
-                <div className="pt-2 border-t border-gray-200 mt-3">
-                  <span className="font-medium">Password:</span> password123
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

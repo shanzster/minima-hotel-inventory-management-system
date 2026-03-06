@@ -5,6 +5,7 @@ import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import roomsApi from '../../lib/roomsApi'
 import { inventoryApi } from '../../lib/inventoryApi'
+import bundlesApi from '../../lib/bundlesApi'
 
 export default function BundleManager({ bundles = [], onCreateBundle, onEditBundle, onDeleteBundle, onAssignBundle, onClearAllAssignments }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -143,12 +144,10 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
     }
   }
 
-  const loadRoomBundleAssignments = () => {
+  const loadRoomBundleAssignments = async () => {
     try {
-      const stored = localStorage.getItem('room_bundle_assignments')
-      if (stored) {
-        setRoomBundleAssignments(JSON.parse(stored))
-      }
+      const assignments = await bundlesApi.getRoomAssignments()
+      setRoomBundleAssignments(assignments)
     } catch (error) {
       console.error('Error loading room bundle assignments:', error)
     }
@@ -608,23 +607,16 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
                               <div key={room.id} className="relative">
                                 {hasBundle && (
                                   <button
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                       e.stopPropagation()
                                       if (window.confirm(`Remove bundle from Room ${roomNum}?`)) {
-                                        const updatedAssignments = { ...roomBundleAssignments }
-                                        delete updatedAssignments[room.id]
-                                        localStorage.setItem('room_bundle_assignments', JSON.stringify(updatedAssignments))
-                                        
-                                        // Also remove bundle status
-                                        const storedStatus = localStorage.getItem('room_bundle_status')
-                                        if (storedStatus) {
-                                          const statusData = JSON.parse(storedStatus)
-                                          delete statusData[room.id]
-                                          localStorage.setItem('room_bundle_status', JSON.stringify(statusData))
+                                        try {
+                                          await bundlesApi.removeBundleFromRoom(room.id)
+                                          await bundlesApi.removeRoomStatus(room.id)
+                                          await loadRoomBundleAssignments()
+                                        } catch (error) {
+                                          console.error('Error removing bundle:', error)
                                         }
-                                        
-                                        // Reload assignments
-                                        loadRoomBundleAssignments()
                                       }
                                     }}
                                     className="absolute -top-1 -right-1 p-1 bg-red-500 rounded-full shadow-md hover:bg-red-600 transition-all z-10"

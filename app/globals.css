@@ -1,5 +1,5 @@
 /* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* Colors */
@@ -16,8 +16,7 @@
   --accent-sand: #E6E1DA;
   
   /* Typography */
-  --font-heading: 'Inter', system-ui, sans-serif;
-  --font-body: 'Roboto', system-ui, sans-serif;
+  --font-global: 'Inter', system-ui, sans-serif;
 }
 
 /* Reset */
@@ -30,13 +29,13 @@
 html, body {
   background-color: var(--whitesmoke);
   color: var(--black);
-  font-family: var(--font-body);
+  font-family: var(--font-global);
   line-height: 1.6;
 }
 
 /* Headings */
 h1, h2, h3, h4 {
-  font-family: var(--font-heading);
+  font-family: var(--font-global);
   font-weight: 500;
 }
 
@@ -48,7 +47,7 @@ a {
 
 /* Buttons */
 button {
-  font-family: var(--font-body);
+  font-family: var(--font-global);
   border-radius: 6px;
   padding: 12px 20px;
   border: none;
@@ -58,7 +57,7 @@ button {
 
 /* Inputs */
 input, textarea, select {
-  font-family: var(--font-body);
+  font-family: var(--font-global);
   border: 1px solid var(--gray-300);
   padding: 12px;
   border-radius: 6px;

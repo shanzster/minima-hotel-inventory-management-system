@@ -114,7 +114,7 @@ export default function PurchasingLoginPage() {
                   placeholder="your@email.com"
                   disabled={isSubmitting}
                   style={{ 
-                    fontFamily: 'var(--font-body)',
+                    fontFamily: 'var(--font-global)',
                     backgroundColor: validationErrors.email ? '#fef2f2' : 'white'
                   }}
                 />
@@ -142,7 +142,7 @@ export default function PurchasingLoginPage() {
                     placeholder="Enter your password"
                     disabled={isSubmitting}
                     style={{ 
-                      fontFamily: 'var(--font-body)',
+                      fontFamily: 'var(--font-global)',
                       backgroundColor: validationErrors.password ? '#fef2f2' : 'white'
                     }}
                   />
@@ -176,7 +176,7 @@ export default function PurchasingLoginPage() {
                 style={{ 
                   backgroundColor: isSubmitting ? 'var(--gray-500)' : 'var(--black)',
                   color: 'white',
-                  fontFamily: 'var(--font-body)'
+                  fontFamily: 'var(--font-global)'
                 }}
                 onMouseEnter={(e) => {
                   if (!isSubmitting) {
