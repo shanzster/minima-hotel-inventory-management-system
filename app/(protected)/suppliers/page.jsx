@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePageTitle } from '../../../hooks/usePageTitle'
+import { useAuth } from '../../../hooks/useAuth'
 import Button from '../../../components/ui/Button'
 import Modal from '../../../components/ui/Modal'
 import Badge from '../../../components/ui/Badge'
@@ -12,6 +13,7 @@ import { INVENTORY_CATEGORIES } from '../../../lib/constants'
 
 export default function SuppliersPage() {
   const { setTitle } = usePageTitle()
+  const { user } = useAuth()
   const [suppliers, setSuppliers] = useState([])
   const [filteredSuppliers, setFilteredSuppliers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -591,6 +593,11 @@ export default function SuppliersPage() {
   // Handle create supplier
   const handleCreateSupplier = async (supplierData) => {
     try {
+      // Check if user is inventory controller or admin for auto-approval
+      const isInventoryController = user?.role === 'inventory-controller'
+      const isAdmin = user?.role === 'admin'
+      const shouldAutoApprove = isInventoryController || isAdmin
+
       const newSupplier = {
         ...supplierData,
         performanceMetrics: {
@@ -603,18 +610,21 @@ export default function SuppliersPage() {
           qualityIssues: 0,
           lastEvaluationDate: null
         },
-        isActive: false,
-        isApproved: false,
-        approvedBy: null,
-        approvedAt: null,
+        isActive: shouldAutoApprove,
+        isApproved: shouldAutoApprove,
+        approvedBy: shouldAutoApprove ? user?.name || user?.email : null,
+        approvedAt: shouldAutoApprove ? new Date().toISOString() : null,
         createdAt: new Date().toISOString()
       }
 
       await supplierApi.create(newSupplier)
       setShowCreateModal(false)
 
-      // Show success modal instead of alert
-      setSuccessMessage('Supplier created successfully and sent for approval!')
+      // Show success modal with appropriate message
+      const message = shouldAutoApprove 
+        ? 'Supplier created and approved successfully!' 
+        : 'Supplier created successfully and sent for approval!'
+      setSuccessMessage(message)
       setShowSuccessModal(true)
 
       // Auto-close success modal after 3 seconds

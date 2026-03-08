@@ -237,7 +237,7 @@ export default function SupplierDetailsModal({
                   <div className="bg-gray-50/80 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                     <h4 className="font-heading font-medium text-base text-gray-900 mb-3">Performance Metrics</h4>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                       {supplier.performanceMetrics?.overallRating > 0 && (
                         <div className="text-center">
                           <label className="text-sm font-medium text-gray-600">Overall Rating</label>
@@ -256,20 +256,29 @@ export default function SupplierDetailsModal({
                         </div>
                       )}
 
-                      {supplier.performanceMetrics?.qualityRating > 0 && (
+                      {supplier.performanceMetrics?.totalOrders > 0 && (
                         <div className="text-center">
-                          <label className="text-sm font-medium text-gray-600">Quality Rating</label>
-                          <p className={`text-2xl font-bold ${getPerformanceColor(supplier.performanceMetrics.qualityRating)}`}>
-                            {supplier.performanceMetrics.qualityRating.toFixed(1)}/5.0
+                          <label className="text-sm font-medium text-gray-600">Total Orders</label>
+                          <p className="text-2xl font-bold text-gray-700">
+                            {supplier.performanceMetrics.totalOrders}
                           </p>
                         </div>
                       )}
 
-                      {supplier.performanceMetrics?.onTimeDeliveries > 0 && (
+                      {supplier.performanceMetrics?.onTimeDeliveries >= 0 && supplier.performanceMetrics?.totalOrders > 0 && (
                         <div className="text-center">
                           <label className="text-sm font-medium text-gray-600">On-Time Deliveries</label>
                           <p className="text-2xl font-bold text-green-600">
-                            {supplier.performanceMetrics.onTimeDeliveries}
+                            {supplier.performanceMetrics.onTimeDeliveries}/{supplier.performanceMetrics.totalOrders}
+                          </p>
+                        </div>
+                      )}
+
+                      {supplier.performanceMetrics?.qualityIssues >= 0 && supplier.performanceMetrics?.totalOrders > 0 && (
+                        <div className="text-center">
+                          <label className="text-sm font-medium text-gray-600">Quality Issues</label>
+                          <p className={`text-2xl font-bold ${supplier.performanceMetrics.qualityIssues === 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                            {supplier.performanceMetrics.qualityIssues}
                           </p>
                         </div>
                       )}

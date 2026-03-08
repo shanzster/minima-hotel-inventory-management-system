@@ -585,25 +585,12 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
                   </div>
                 ) : (
                   <div className="max-h-96 overflow-y-auto space-y-3">
-                    {Object.entries(
-                      rooms.reduce((acc, room) => {
-                        const floor = room.floor || 1
-                        if (!acc[floor]) acc[floor] = []
-                        acc[floor].push(room)
-                        return acc
-                      }, {})
-                    ).sort(([a], [b]) => b - a).map(([floor, floorRooms]) => (
-                      <div key={floor} className="space-y-2">
-                        <div className="bg-gray-100 px-3 py-1 rounded text-sm font-semibold text-gray-700">
-                          Floor {floor}
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
-                          {floorRooms.map(room => {
-                            const roomNum = room.roomNumber || room.number
-                            const isSelected = selectedRooms.includes(room.id)
-                            const hasBundle = !!roomBundleAssignments[room.id]
-                            
-                            return (
+                    {rooms.map(room => {
+                      const roomNum = room.roomNumber || room.number
+                      const isSelected = selectedRooms.includes(room.id)
+                      const hasBundle = !!roomBundleAssignments[room.id]
+                      
+                      return (
                               <div key={room.id} className="relative">
                                 {hasBundle && (
                                   <button
@@ -660,9 +647,6 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
                               </div>
                             )
                           })}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 )}
 

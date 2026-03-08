@@ -6,6 +6,7 @@ import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 import inventoryApi from '../../lib/inventoryApi'
 import purchaseOrderApi from '../../lib/purchaseOrderApi'
+import supplierApi from '../../lib/supplierApi'
 import { formatCurrency } from '../../lib/utils'
 
 export default function ReceivePOModal({
@@ -172,10 +173,12 @@ export default function ReceivePOModal({
                 }
             }
 
+            const receivedAt = new Date().toISOString()
+
             // Update PO Status to delivered with final received total
             await purchaseOrderApi.update(order.id, {
                 status: 'delivered',
-                receivedAt: new Date().toISOString(),
+                receivedAt: receivedAt,
                 actualTotalAmount: totalReceivedValue,
                 statusHistory: [
                     ...(order.statusHistory || []),
@@ -183,10 +186,29 @@ export default function ReceivePOModal({
                         status: 'delivered',
                         reason: `Received with discrepancies. Adjusted Total: ${formatCurrency(totalReceivedValue)}`,
                         changedBy: 'purchasing-officer',
-                        changedAt: new Date().toISOString()
+                        changedAt: receivedAt
                     }
                 ]
             })
+
+            // Update supplier performance metrics
+            if (order.supplierId && order.expectedDelivery) {
+                try {
+                    // Check if there were any quality issues (discrepancies)
+                    const hasQualityIssue = itemsToProcess.some(item => 
+                        Math.abs(parseFloat(item.receivedQuantity) - item.orderedQuantity) > 0
+                    )
+
+                    await supplierApi.updatePerformanceMetrics(order.supplierId, {
+                        expectedDeliveryDate: order.expectedDelivery,
+                        actualDeliveryDate: receivedAt,
+                        hasQualityIssue: hasQualityIssue
+                    })
+                } catch (perfError) {
+                    console.error('Failed to update supplier performance:', perfError)
+                    // Don't fail the entire operation if performance update fails
+                }
+            }
 
             // Trigger Print Receipt pop-up
             triggerPrintReceipt(receivingData, totalReceivedValue)
@@ -256,53 +278,76 @@ export default function ReceivePOModal({
 
                                         {item.isChecked && (
                                             <>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                                                    <div className="space-y-1 max-w-[120px]">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                    {/* Received Quantity with +/- buttons */}
+                                                    <div className="space-y-1">
                                                         <label className="text-[10px] font-bold text-gray-600 uppercase block">Received Qty *</label>
-                                                        <input
-                                                            type="number"
-                                                            value={item.receivedQuantity}
-                                                            onChange={(e) => handleInputChange(id, 'receivedQuantity', e.target.value)}
-                                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-bold text-sm"
-                                                        />
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleInputChange(id, 'receivedQuantity', Math.max(0, parseFloat(item.receivedQuantity || 0) - 1))}
+                                                                className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-lg shadow-md active:scale-95 transition-all"
+                                                            >
+                                                                −
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                value={item.receivedQuantity}
+                                                                onChange={(e) => handleInputChange(id, 'receivedQuantity', e.target.value)}
+                                                                className="flex-1 min-w-0 px-3 py-2.5 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-bold text-base text-center"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleInputChange(id, 'receivedQuantity', parseFloat(item.receivedQuantity || 0) + 1)}
+                                                                className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-lg shadow-md active:scale-95 transition-all"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-1 max-w-[100px]">
-                                                        <label className="text-[10px] font-bold text-gray-600 uppercase block">Diff</label>
-                                                        <div className={`px-1.5 py-1.5 rounded border border-gray-300 text-xs font-bold text-center ${
-                                                            shortage === 0 ? 'text-gray-600' :
-                                                            shortage > 0 ? 'text-red-600' :
-                                                            'text-green-600'
+
+                                                    {/* Difference Display */}
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-gray-600 uppercase block">Difference</label>
+                                                        <div className={`h-10 px-3 py-2.5 rounded-lg border-2 text-sm font-bold flex items-center justify-center ${
+                                                            shortage === 0 ? 'border-gray-300 text-gray-600 bg-gray-50' :
+                                                            shortage > 0 ? 'border-red-300 text-red-600 bg-red-50' :
+                                                            'border-green-300 text-green-600 bg-green-50'
                                                         }`}>
                                                             {shortage === 0 ? '0' : shortage > 0 ? `-${shortage}` : `+${Math.abs(shortage)}`}
                                                         </div>
                                                     </div>
+
+                                                    {/* Condition */}
                                                     <div className="space-y-1">
                                                         <label className="text-[10px] font-bold text-gray-600 uppercase block">Condition</label>
                                                         <select
                                                             value={item.condition || 'good'}
                                                             onChange={(e) => handleInputChange(id, 'condition', e.target.value)}
-                                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                                            className="w-full h-10 px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium"
                                                         >
-                                                            <option value="good">Good</option>
-                                                            <option value="damaged">Damaged</option>
-                                                            <option value="partial">Partial</option>
+                                                            <option value="good">✓ Good</option>
+                                                            <option value="damaged">✗ Damaged</option>
+                                                            <option value="partial">⚠ Partial</option>
                                                         </select>
                                                     </div>
-                                                    <div className="space-y-1">
+
+                                                    {/* Notes */}
+                                                    <div className="space-y-1 sm:col-span-2 lg:col-span-1">
                                                         <label className="text-[10px] font-bold text-gray-600 uppercase block">Notes</label>
                                                         <input
                                                             type="text"
                                                             value={item.notes || ''}
                                                             onChange={(e) => handleInputChange(id, 'notes', e.target.value)}
-                                                            placeholder="Optional"
-                                                            className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                                            placeholder="Optional notes"
+                                                            className="w-full h-10 px-3 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
                                                         />
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="pt-1.5 border-t border-gray-200">
-                                                    <p className="text-xs font-bold text-gray-700">
-                                                        Received Total: {formatCurrency((parseFloat(item.receivedQuantity) || 0) * item.unitCost)}
+                                                <div className="pt-2 border-t border-gray-200">
+                                                    <p className="text-sm font-bold text-gray-700">
+                                                        Received Total: <span className="text-indigo-600">{formatCurrency((parseFloat(item.receivedQuantity) || 0) * item.unitCost)}</span>
                                                     </p>
                                                 </div>
                                             </>

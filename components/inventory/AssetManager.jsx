@@ -148,7 +148,7 @@ export default function AssetManager({ assets = [], onAssetUpdate, conditionFilt
         notes: editForm.notes,
         room: selectedRoom?.roomNumber || editForm.room,
         roomId: editForm.roomId,
-        location: `${selectedRoom?.floor ? `Floor ${selectedRoom.floor}, ` : ''}Room ${selectedRoom?.roomNumber || editForm.room}`
+        location: `Room ${selectedRoom?.roomNumber || editForm.room}`
       }
 
       await inventoryApi.update(selectedUnit.id, updatedAsset)
@@ -485,7 +485,7 @@ export default function AssetManager({ assets = [], onAssetUpdate, conditionFilt
                 <option value="">{loadingRooms ? 'Loading rooms...' : 'Select Room'}</option>
                 {rooms.map(room => (
                   <option key={room.id} value={room.id}>
-                    Room {room.roomNumber} - {room.type} (Floor {room.floor})
+                    Room {room.roomNumber} - {room.type}
                   </option>
                 ))}
               </select>

@@ -74,27 +74,13 @@ export default function BundlesPage() {
 
   const handleAssignBundle = async (bundle, roomIds) => {
     try {
-      // Store complete bundle data for each room
-      const assignments = await bundlesApi.getRoomAssignments()
-      
-      for (const roomId of roomIds) {
-        assignments[roomId] = {
-          bundleId: bundle.id,
-          bundleName: bundle.name,
-          bundleType: bundle.type,
-          bundleDescription: bundle.description,
-          assignedAt: new Date().toISOString(),
-          assignedBy: user?.id || 'admin',
-          items: bundle.items // Store complete item list
-        }
-      }
-      
-      // Save all assignments
+      // Pass user information for assignment tracking
       await bundlesApi.assignBundleToRooms(bundle.id, roomIds, {
         bundleName: bundle.name,
         bundleType: bundle.type,
         bundleDescription: bundle.description,
-        items: bundle.items
+        items: bundle.items,
+        assignedBy: user?.name || user?.email || 'Unknown User'
       })
       
       toast.success(`Bundle "${bundle.name}" permanently assigned to ${roomIds.length} room(s). Bundle will remain in room and be refurbished after each guest checkout.`)

@@ -59,37 +59,26 @@ export default function HousekeepingPage() {
       const updates = []
 
       for (const room of rooms) {
-        const hasBundle = roomBundles[room.id]
-        if (!hasBundle) continue
+        const bundleAssignment = roomBundles[room.id]
+        if (!bundleAssignment) continue
 
         const currentStatus = bundleStatus[room.id]
 
-        // Room just got booked - deduct stock and set to pending
+        // Room just got booked - set to pending (stock deduction happens on checkout/inspection)
         if (room.status === 'occupied' && currentStatus !== 'pending') {
-          try {
-            const result = await bundlesApi.deductBundleStock(room.id, hasBundle, user?.id || 'system')
-            if (result.success) {
-              updates.push({
-                roomId: room.id,
-                status: 'pending',
-                lastDeployment: new Date().toISOString()
-              })
-              statusChanged = true
-              toast.success(`Bundle deployed to Room ${room.roomNumber || room.number}`)
-            } else {
-              toast.error(`Failed to deploy bundle to Room ${room.roomNumber || room.number}: ${result.errors.join(', ')}`)
-            }
-          } catch (error) {
-            console.error('Error deducting bundle stock:', error)
-            toast.error(`Error deploying bundle to Room ${room.roomNumber || room.number}`)
-          }
+          updates.push({
+            roomId: room.id,
+            bundleId: bundleAssignment.bundleId,
+            status: 'pending'
+          })
+          statusChanged = true
         }
         // Guest checked out - needs inspection
         else if (room.status === 'available' && currentStatus === 'pending') {
           updates.push({
             roomId: room.id,
-            status: 'needs-inspection',
-            lastUpdated: new Date().toISOString()
+            bundleId: bundleAssignment.bundleId,
+            status: 'needs-inspection'
           })
           statusChanged = true
         }
@@ -98,7 +87,11 @@ export default function HousekeepingPage() {
       // Apply all updates
       if (statusChanged) {
         for (const update of updates) {
-          await bundlesApi.updateRoomStatus(update.roomId, update.status)
+          try {
+            await bundlesApi.updateRoomStatus(update.bundleId, update.roomId, update.status)
+          } catch (error) {
+            console.error(`Error updating status for room ${update.roomId}:`, error)
+          }
         }
         // Reload statuses
         const newStatuses = await bundlesApi.getRoomStatuses()
@@ -139,47 +132,31 @@ export default function HousekeepingPage() {
         return
       }
 
-      // Separate consumed and remaining items
-      const returnedItems = []
-      const consumedItems = []
+      // Prepare consumed items data
+      const consumedItems = checklistData.items
+        .filter(item => item.consumed > 0)
+        .map(item => ({
+          itemId: item.itemId,
+          name: item.name,
+          bundleQuantity: item.deployed,
+          consumed: item.consumed
+        }))
 
-      checklistData.items.forEach(item => {
-        if (item.remaining > 0) {
-          returnedItems.push({
-            itemId: item.itemId,
-            name: item.name,
-            quantity: item.remaining,
-            deployed: item.deployed
-          })
-        }
-        if (item.consumed > 0) {
-          consumedItems.push({
-            itemId: item.itemId,
-            name: item.name,
-            quantity: item.consumed,
-            deployed: item.deployed
-          })
-        }
-      })
-
-      // Return unused items to stock
-      const result = await bundlesApi.returnBundleStock(
+      // Record consumption and deduct stock
+      const result = await bundlesApi.recordConsumption(
         checklistData.room.id,
         bundle.id,
-        returnedItems,
         consumedItems,
         user?.id || 'housekeeping',
         checklistData.notes || ''
       )
 
       if (result.success) {
-        // Update bundle status to ready
-        await bundlesApi.updateRoomStatus(checklistData.room.id, 'ready')
-        
         // Reload data
         await loadData()
         
-        toast.success(`Inspection completed for Room ${checklistData.room.roomNumber || checklistData.room.number}. ${returnedItems.length} items returned to stock.`)
+        const totalConsumed = consumedItems.reduce((sum, item) => sum + item.consumed, 0)
+        toast.success(`Inspection completed for Room ${checklistData.room.roomNumber || checklistData.room.number}. ${totalConsumed} items consumed and deducted from stock.`)
       } else {
         toast.error(`Inspection completed with errors: ${result.errors.join(', ')}`)
       }
@@ -198,8 +175,14 @@ export default function HousekeepingPage() {
     }
 
     try {
-      await bundlesApi.removeBundleFromRoom(roomId)
-      await bundlesApi.removeRoomStatus(roomId)
+      // Find which bundle is assigned to this room
+      const bundleAssignment = roomBundles[roomId]
+      if (!bundleAssignment) {
+        toast.error('No bundle assigned to this room')
+        return
+      }
+
+      await bundlesApi.removeBundleFromRoom(bundleAssignment.bundleId, roomId)
       await loadData()
       toast.success(`Bundle removed from Room ${roomNumber}`)
     } catch (error) {
@@ -281,14 +264,6 @@ export default function HousekeepingPage() {
     
     return true
   })
-
-  // Group rooms by floor
-  const roomsByFloor = filteredRooms.reduce((acc, room) => {
-    const floor = room.floor || 1
-    if (!acc[floor]) acc[floor] = []
-    acc[floor].push(room)
-    return acc
-  }, {})
 
   // Calculate counts
   const needsInspectionCount = rooms.filter(r => roomBundles[r.id] && bundleStatus[r.id] === 'needs-inspection').length
@@ -403,11 +378,10 @@ export default function HousekeepingPage() {
 
       {/* Rooms Grid */}
       <div className="space-y-6">
-        {Object.keys(roomsByFloor).sort((a, b) => b - a).map(floor => (
-          <div key={floor} className="bg-white/80 backdrop-blur-xl rounded-lg border border-white/20 p-4 shadow-xl">
-            <h3 className="font-semibold text-gray-900 mb-4">Floor {floor}</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {roomsByFloor[floor].map(room => {
+        <div className="bg-white/80 backdrop-blur-xl rounded-lg border border-white/20 p-4 shadow-xl">
+          <h3 className="font-semibold text-gray-900 mb-4">All Rooms</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {filteredRooms.map(room => {
                 const hasBundle = !!getAssignedBundle(room.id)
                 const status = bundleStatus[room.id] || 'ready'
                 const isNeedsInspection = status === 'needs-inspection'
@@ -518,7 +492,6 @@ export default function HousekeepingPage() {
               })}
             </div>
           </div>
-        ))}
       </div>
 
       {/* Inspection Modal */}

@@ -10,7 +10,18 @@ export default function AuditExecutionModal({
     onSubmit,
     onCancel
 }) {
-    const [items, setItems] = useState(audit.items || [])
+    const [items, setItems] = useState(() => {
+        // Initialize items with conditionBreakdown if not present
+        return (audit.items || []).map(item => ({
+            ...item,
+            conditionBreakdown: item.conditionBreakdown || {
+                good: '',
+                damaged: '',
+                expired: '',
+                missing: ''
+            }
+        }))
+    })
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [activeItemIndex, setActiveItemIndex] = useState(0)
 
@@ -21,7 +32,17 @@ export default function AuditExecutionModal({
             [field]: value
         }
 
-        // Auto-calculate discrepancy
+        // Auto-calculate actual stock from condition breakdown
+        if (field === 'conditionBreakdown') {
+            const breakdown = value
+            const actualStock = (breakdown.good || 0) + (breakdown.damaged || 0) + (breakdown.expired || 0) + (breakdown.missing || 0)
+            updatedItems[index].actualStock = actualStock
+            
+            const expected = parseFloat(updatedItems[index].expectedStock) || 0
+            updatedItems[index].discrepancy = actualStock - expected
+        }
+
+        // Auto-calculate discrepancy (legacy support for direct actualStock input)
         if (field === 'actualStock') {
             const actual = parseFloat(value) || 0
             const expected = parseFloat(updatedItems[index].expectedStock) || 0
@@ -31,9 +52,48 @@ export default function AuditExecutionModal({
         setItems(updatedItems)
     }
 
+    const handleConditionChange = (index, condition, value) => {
+        const updatedItems = [...items]
+        const item = updatedItems[index]
+        
+        // Initialize conditionBreakdown if it doesn't exist
+        if (!item.conditionBreakdown) {
+            item.conditionBreakdown = {
+                good: '',
+                damaged: '',
+                expired: '',
+                missing: ''
+            }
+        }
+        
+        // Update the specific condition - keep as string if empty, convert to number if has value
+        item.conditionBreakdown[condition] = value
+        
+        // Calculate total actual stock from all conditions (treat empty as 0)
+        const actualStock = 
+            (parseInt(item.conditionBreakdown.good) || 0) + 
+            (parseInt(item.conditionBreakdown.damaged) || 0) + 
+            (parseInt(item.conditionBreakdown.expired) || 0) + 
+            (parseInt(item.conditionBreakdown.missing) || 0)
+        
+        item.actualStock = actualStock
+        
+        // Calculate discrepancy
+        const expected = parseFloat(item.expectedStock) || 0
+        item.discrepancy = actualStock - expected
+        
+        setItems(updatedItems)
+    }
+
     const handleFinalize = async () => {
-        // Check if all items have an actual stock value
-        const incompleteItems = items.filter(item => item.actualStock === null || item.actualStock === undefined || item.actualStock === '')
+        // Check if all items have condition breakdown
+        const incompleteItems = items.filter(item => {
+            const breakdown = item.conditionBreakdown
+            if (!breakdown) return true
+            const total = (parseInt(breakdown.good) || 0) + (parseInt(breakdown.damaged) || 0) + (parseInt(breakdown.expired) || 0) + (parseInt(breakdown.missing) || 0)
+            return total === 0
+        })
+        
         if (incompleteItems.length > 0) {
             if (!confirm(`There are ${incompleteItems.length} items without recorded stock levels. Do you want to finalize anyway?`)) {
                 return
@@ -47,20 +107,32 @@ export default function AuditExecutionModal({
             const accurateItems = items.filter(item => Math.abs(item.discrepancy) === 0).length
             const complianceScore = Math.round((accurateItems / totalItems) * 100)
 
+            // Convert condition breakdown to numbers for storage
+            const itemsWithNumbers = items.map(item => ({
+                ...item,
+                conditionBreakdown: {
+                    good: parseInt(item.conditionBreakdown?.good) || 0,
+                    damaged: parseInt(item.conditionBreakdown?.damaged) || 0,
+                    expired: parseInt(item.conditionBreakdown?.expired) || 0,
+                    missing: parseInt(item.conditionBreakdown?.missing) || 0
+                }
+            }))
+
             // Identify discrepancies for the audit record summary
-            const discrepancies = items
+            const discrepancies = itemsWithNumbers
                 .filter(item => Math.abs(item.discrepancy) > 0)
                 .map(item => ({
                     itemId: item.itemId,
                     itemName: item.itemName,
                     type: item.discrepancy > 0 ? 'surplus' : 'shortage',
                     quantity: Math.abs(item.discrepancy),
+                    conditionBreakdown: item.conditionBreakdown,
                     resolvedAt: null
                 }))
 
             const updatedAudit = {
                 ...audit,
-                items,
+                items: itemsWithNumbers,
                 discrepancies,
                 complianceScore,
                 status: 'completed',
@@ -154,7 +226,7 @@ export default function AuditExecutionModal({
                                     <span className={`text-sm font-bold truncate ${activeItemIndex === index ? 'text-black' : 'text-gray-700'}`}>
                                         {item.itemName}
                                     </span>
-                                    {item.actualStock !== null && item.actualStock !== undefined && item.actualStock !== '' && (
+                                    {item.conditionBreakdown && ((parseInt(item.conditionBreakdown.good) || 0) + (parseInt(item.conditionBreakdown.damaged) || 0) + (parseInt(item.conditionBreakdown.expired) || 0) + (parseInt(item.conditionBreakdown.missing) || 0)) > 0 && (
                                         <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
@@ -196,23 +268,102 @@ export default function AuditExecutionModal({
                                         <p className="text-3xl font-bold text-blue-900">{activeItem.expectedStock}</p>
                                     </div>
 
-                                    <div className="p-4 bg-slate-50 rounded-xl border border-gray-200 focus-within:border-black transition-all">
-                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Actual Stock *</p>
-                                        <input
-                                            type="number"
-                                            value={activeItem.actualStock ?? ''}
-                                            onChange={(e) => handleUpdateItem(activeItemIndex, 'actualStock', e.target.value)}
-                                            placeholder="0"
-                                            className="text-3xl font-bold bg-transparent border-none p-0 focus:outline-none w-full text-black placeholder-slate-300"
-                                        />
+                                    <div className="p-4 bg-green-50/50 rounded-xl border border-green-100">
+                                        <p className="text-xs font-bold text-green-600 uppercase tracking-widest mb-1">Actual Stock (Total)</p>
+                                        <p className="text-3xl font-bold text-green-900">{activeItem.actualStock || 0}</p>
                                     </div>
                                 </div>
 
                                 <div className="space-y-6">
+                                    {/* Condition Breakdown */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Stock Condition Breakdown *</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {/* Good */}
+                                            <div className="p-4 bg-green-50/50 rounded-xl border-2 border-green-100 focus-within:border-green-500 transition-all">
+                                                <div className="flex items-center mb-2">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-2">
+                                                        <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <label className="text-xs font-bold text-green-700 uppercase tracking-wide">Good</label>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={activeItem.conditionBreakdown?.good ?? ''}
+                                                    onChange={(e) => handleConditionChange(activeItemIndex, 'good', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full text-2xl font-bold bg-transparent border-none p-0 focus:outline-none text-green-900 placeholder-green-200"
+                                                />
+                                            </div>
+
+                                            {/* Damaged */}
+                                            <div className="p-4 bg-orange-50/50 rounded-xl border-2 border-orange-100 focus-within:border-orange-500 transition-all">
+                                                <div className="flex items-center mb-2">
+                                                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center mr-2">
+                                                        <svg className="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <label className="text-xs font-bold text-orange-700 uppercase tracking-wide">Damaged</label>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={activeItem.conditionBreakdown?.damaged ?? ''}
+                                                    onChange={(e) => handleConditionChange(activeItemIndex, 'damaged', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full text-2xl font-bold bg-transparent border-none p-0 focus:outline-none text-orange-900 placeholder-orange-200"
+                                                />
+                                            </div>
+
+                                            {/* Expired */}
+                                            <div className="p-4 bg-red-50/50 rounded-xl border-2 border-red-100 focus-within:border-red-500 transition-all">
+                                                <div className="flex items-center mb-2">
+                                                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mr-2">
+                                                        <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <label className="text-xs font-bold text-red-700 uppercase tracking-wide">Expired</label>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={activeItem.conditionBreakdown?.expired ?? ''}
+                                                    onChange={(e) => handleConditionChange(activeItemIndex, 'expired', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full text-2xl font-bold bg-transparent border-none p-0 focus:outline-none text-red-900 placeholder-red-200"
+                                                />
+                                            </div>
+
+                                            {/* Missing */}
+                                            <div className="p-4 bg-gray-50/50 rounded-xl border-2 border-gray-200 focus-within:border-gray-500 transition-all">
+                                                <div className="flex items-center mb-2">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                                                        <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Missing</label>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={activeItem.conditionBreakdown?.missing ?? ''}
+                                                    onChange={(e) => handleConditionChange(activeItemIndex, 'missing', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full text-2xl font-bold bg-transparent border-none p-0 focus:outline-none text-gray-900 placeholder-gray-300"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                     {/* Discrepancy Status */}
                                     <div className={`p-4 rounded-xl border flex items-center justify-between ${activeItem.discrepancy === 0
                                         ? 'bg-green-50/50 border-green-100 text-green-800'
-                                        : (activeItem.actualStock === null || activeItem.actualStock === '')
+                                        : (activeItem.actualStock === null || activeItem.actualStock === '' || activeItem.actualStock === 0)
                                             ? 'bg-slate-50 border-gray-100 text-gray-400'
                                             : 'bg-amber-50/50 border-amber-100 text-amber-800'
                                         }`}>
@@ -229,27 +380,8 @@ export default function AuditExecutionModal({
                                                 )}
                                             </div>
                                             <span className="font-bold">
-                                                {activeItem.discrepancy === 0 ? 'Stock Balanced' : (activeItem.actualStock === null || activeItem.actualStock === '') ? 'Awating Input' : `Variance Identified: ${activeItem.discrepancy > 0 ? '+' : ''}${activeItem.discrepancy}`}
+                                                {activeItem.discrepancy === 0 ? 'Stock Balanced' : (activeItem.actualStock === null || activeItem.actualStock === '' || activeItem.actualStock === 0) ? 'Awaiting Input' : `Variance Identified: ${activeItem.discrepancy > 0 ? '+' : ''}${activeItem.discrepancy}`}
                                             </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Item Condition</label>
-                                        <div className="flex space-x-2">
-                                            {['good', 'damaged', 'expired', 'missing'].map(cond => (
-                                                <button
-                                                    key={cond}
-                                                    type="button"
-                                                    onClick={() => handleUpdateItem(activeItemIndex, 'condition', cond)}
-                                                    className={`flex-1 py-3 px-2 rounded-lg border-2 text-xs font-bold uppercase transition-all ${activeItem.condition === cond
-                                                        ? 'bg-black border-black text-white shadow-md'
-                                                        : 'bg-white border-gray-100 text-gray-500 hover:border-gray-200'
-                                                        }`}
-                                                >
-                                                    {cond}
-                                                </button>
-                                            ))}
                                         </div>
                                     </div>
 

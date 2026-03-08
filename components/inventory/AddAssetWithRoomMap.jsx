@@ -38,15 +38,8 @@ export default function AddAssetWithRoomMap({ onSubmit, onCancel }) {
 
   // Organize rooms by floor for the minimap
   const getRoomsByFloor = () => {
-    const floors = {}
-    rooms.forEach(room => {
-      const floor = room.floor || 1
-      if (!floors[floor]) {
-        floors[floor] = []
-      }
-      floors[floor].push(room)
-    })
-    return floors
+    // No floor grouping - return all rooms
+    return { 'all': rooms }
   }
 
   const roomsByFloor = getRoomsByFloor()
@@ -64,7 +57,7 @@ export default function AddAssetWithRoomMap({ onSubmit, onCancel }) {
       type: 'asset',
       room: selectedRoom.roomNumber || selectedRoom.number,
       roomId: selectedRoom.id,
-      location: `Floor ${selectedRoom.floor}, Room ${selectedRoom.roomNumber || selectedRoom.number}`,
+      location: `Room ${selectedRoom.roomNumber || selectedRoom.number}`,
       currentStock: 1,
       unit: 'unit',
       restockThreshold: 0

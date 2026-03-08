@@ -88,7 +88,7 @@ export default function HousekeepingChecklist({ room, assignedBundle, onComplete
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-lg font-bold">Room {room.number || room.roomNumber}</h3>
-            <p className="text-sm text-purple-100">{room.type} - Floor {room.floor}</p>
+            <p className="text-sm text-purple-100">{room.type}</p>
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold">{assignedBundle.name}</div>

@@ -175,6 +175,8 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
         i.sourceId === item.id ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
+      const numRooms = selectedRooms.length
+      const totalSerialNumbers = 1 * numRooms // quantity × rooms
       setSelectedItems([...selectedItems, {
         id: Date.now() + Math.random(),
         sourceId: item.id,
@@ -184,7 +186,7 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
         quantity: 1,
         maxStock: Math.floor(item.currentStock / numRooms), // Max per room based on total stock
         condition: 'good',
-        serialNumbers: [''], // Array of serial numbers, one per quantity
+        serialNumbers: Array(totalSerialNumbers).fill(''), // Array of serial numbers for all rooms
         notes: ''
       }])
     }
@@ -210,9 +212,10 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
           return item
         }
         
-        // Adjust serial numbers array to match new quantity
+        // Adjust serial numbers array to match new total (quantity × rooms)
+        const totalSerialNumbers = newQuantity * numRooms
         const serialNumbers = item.serialNumbers || []
-        const updatedSerialNumbers = Array(newQuantity).fill('').map((_, i) => serialNumbers[i] || '')
+        const updatedSerialNumbers = Array(totalSerialNumbers).fill('').map((_, i) => serialNumbers[i] || '')
         
         return { ...item, quantity: newQuantity, serialNumbers: updatedSerialNumbers }
       }
@@ -315,7 +318,7 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
               type: 'asset',
               room: room.roomNumber || room.number,
               roomId: room.id,
-              location: `Floor ${room.floor}, Room ${room.roomNumber || room.number}`,
+              location: `Room ${room.roomNumber || room.number}`,
               currentStock: 1,
               unit: 'unit',
               restockThreshold: 0,
@@ -385,13 +388,6 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
 
   // Step 2: Select Rooms (Multiple)
   if (step === 2) {
-    const roomsByFloor = {}
-    rooms.forEach(room => {
-      const floor = room.floor || 1
-      if (!roomsByFloor[floor]) roomsByFloor[floor] = []
-      roomsByFloor[floor].push(room)
-    })
-
     const toggleRoomSelection = (room) => {
       setSelectedRooms(prev => {
         const isSelected = prev.find(r => r.id === room.id)
@@ -437,27 +433,20 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
             <p>No rooms found for this category</p>
           </div>
         ) : (
-          <div className="space-y-6 max-h-[500px] overflow-y-auto">
-            {Object.keys(roomsByFloor).sort((a, b) => b - a).map(floor => (
-              <div key={floor} className="space-y-3">
-                <div className="sticky top-0 z-10 bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2 rounded-lg">
-                  <h4 className="text-sm font-semibold text-gray-700">Floor {floor}</h4>
-                </div>
-                
-                <div className="space-y-3">
-                  {roomsByFloor[floor].map(room => {
-                    const roomNum = room.roomNumber || room.number || 'N/A'
-                    const roomAssets = roomAssetsCache[room.id] || []
-                    const selected = isRoomSelected(room.id)
-                    
-                    // Group assets by name and count duplicates
-                    const groupedAssets = roomAssets.reduce((acc, asset) => {
-                      const name = asset.name
-                      if (acc[name]) {
-                        acc[name].count++
-                      } else {
-                        acc[name] = { name, count: 1 }
-                      }
+          <div className="space-y-3 max-h-[500px] overflow-y-auto">
+            {rooms.map(room => {
+              const roomNum = room.roomNumber || room.number || 'N/A'
+              const roomAssets = roomAssetsCache[room.id] || []
+              const selected = isRoomSelected(room.id)
+              
+              // Group assets by name and count duplicates
+              const groupedAssets = roomAssets.reduce((acc, asset) => {
+                const name = asset.name
+                if (acc[name]) {
+                  acc[name].count++
+                } else {
+                  acc[name] = { name, count: 1 }
+                }
                       return acc
                     }, {})
                     
@@ -526,9 +515,6 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
                       </button>
                     )
                   })}
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
@@ -564,7 +550,7 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
               </h3>
               <p className="text-sm text-green-100">
                 {selectedRooms.length === 1 
-                  ? `${selectedRooms[0].type} - Floor ${selectedRooms[0].floor}`
+                  ? `${selectedRooms[0].type}`
                   : selectedRooms.map(r => `Room ${r.roomNumber || r.number}`).join(', ')
                 }
               </p>
@@ -800,17 +786,49 @@ export default function EnhancedAssetAssignment({ onSubmit, onCancel }) {
                 </select>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-700">Serial Numbers (optional):</label>
-                  {Array.from({ length: item.quantity }).map((_, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      placeholder={`Serial #${index + 1}`}
-                      value={(item.serialNumbers && item.serialNumbers[index]) || ''}
-                      onChange={(e) => handleUpdateSerialNumber(item.id, index, e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
-                    />
-                  ))}
+                  <label className="text-xs font-medium text-gray-700">
+                    Serial Numbers (optional):
+                    {selectedRooms.length > 1 && (
+                      <span className="ml-1 text-gray-500">
+                        ({item.quantity} × {selectedRooms.length} rooms = {item.quantity * selectedRooms.length} total)
+                      </span>
+                    )}
+                  </label>
+                  {selectedRooms.length === 1 ? (
+                    // Single room: show quantity-based serial numbers
+                    Array.from({ length: item.quantity }).map((_, index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        placeholder={`Serial #${index + 1}`}
+                        value={(item.serialNumbers && item.serialNumbers[index]) || ''}
+                        onChange={(e) => handleUpdateSerialNumber(item.id, index, e.target.value)}
+                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                      />
+                    ))
+                  ) : (
+                    // Multiple rooms: show serial numbers grouped by room
+                    selectedRooms.map((room, roomIndex) => (
+                      <div key={room.id} className="space-y-1 mb-2">
+                        <div className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                          Room {room.roomNumber || room.number}
+                        </div>
+                        {Array.from({ length: item.quantity }).map((_, qtyIndex) => {
+                          const serialIndex = roomIndex * item.quantity + qtyIndex
+                          return (
+                            <input
+                              key={serialIndex}
+                              type="text"
+                              placeholder={`Serial #${qtyIndex + 1} for Room ${room.roomNumber || room.number}`}
+                              value={(item.serialNumbers && item.serialNumbers[serialIndex]) || ''}
+                              onChange={(e) => handleUpdateSerialNumber(item.id, serialIndex, e.target.value)}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                            />
+                          )
+                        })}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             ))
