@@ -46,6 +46,22 @@ export default function ProtectedLayout({ children }) {
     return null
   }
 
+  // Housekeeping users get a standalone full-screen layout
+  const isHousekeeping = user?.role === 'housekeeping'
+
+  if (isHousekeeping) {
+    return (
+      <PageTitleProvider>
+        <div className="min-h-screen bg-gray-50">
+          {/* Full-screen content for housekeeping */}
+          <main className="min-h-screen">
+            {children}
+          </main>
+        </div>
+      </PageTitleProvider>
+    )
+  }
+
   return (
     <NavigationProvider>
       <PageTitleProvider>

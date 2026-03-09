@@ -12,6 +12,8 @@ export default function BundlesPage() {
   const { user } = useAuth()
   const [bundles, setBundles] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showClearAllModal, setShowClearAllModal] = useState(false)
+  const [assignedRoomsCount, setAssignedRoomsCount] = useState(0)
 
   useEffect(() => {
     setTitle('Bundle Management')
@@ -91,13 +93,23 @@ export default function BundlesPage() {
   }
 
   const handleClearAllAssignments = async () => {
-    if (!confirm('⚠️ Are you sure you want to remove ALL bundle assignments from all rooms? This cannot be undone.')) {
-      return
+    // Calculate assigned rooms count
+    try {
+      const assignments = await bundlesApi.getRoomAssignments()
+      const count = Object.keys(assignments).length
+      setAssignedRoomsCount(count)
+      setShowClearAllModal(true)
+    } catch (error) {
+      console.error('Error loading assignments:', error)
+      toast.error('Failed to load room assignments')
     }
+  }
 
+  const handleConfirmClearAll = async () => {
     try {
       await bundlesApi.clearAllAssignments()
       await bundlesApi.clearAllStatuses()
+      setShowClearAllModal(false)
       toast.success('All bundle assignments have been cleared from all rooms')
     } catch (error) {
       console.error('Error clearing assignments:', error)
@@ -124,6 +136,10 @@ export default function BundlesPage() {
         onDeleteBundle={handleDeleteBundle}
         onAssignBundle={handleAssignBundle}
         onClearAllAssignments={handleClearAllAssignments}
+        showClearAllModal={showClearAllModal}
+        assignedRoomsCount={assignedRoomsCount}
+        onConfirmClearAll={handleConfirmClearAll}
+        onCancelClearAll={() => setShowClearAllModal(false)}
       />
     </div>
   )

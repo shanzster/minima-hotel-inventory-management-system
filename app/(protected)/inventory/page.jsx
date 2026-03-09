@@ -480,14 +480,22 @@ export default function InventoryPage() {
 
     // Set up real-time listener if using Firebase
     const unsubscribe = inventoryApi.onInventoryChange((items) => {
-      const nonAssignedItems = items.filter(item => 
+      let nonAssignedItems = items.filter(item => 
         item.type !== 'assigned-asset' && item.type !== 'asset-instance'
       )
+      
+      // Filter to only Kitchen Storage items for kitchen staff
+      if (isKitchenStaff) {
+        nonAssignedItems = nonAssignedItems.filter(item => 
+          item.location === 'Kitchen Storage' || item.location === 'Kitchen'
+        )
+      }
+      
       setInventoryItems(nonAssignedItems)
     })
 
     return unsubscribe
-  }, [])
+  }, [isKitchenStaff])
 
 
 
@@ -765,7 +773,45 @@ export default function InventoryPage() {
 
   const handleUpdateStock = async (itemId, quantityChange, transactionData) => {
     try {
-      await inventoryApi.updateStock(itemId, quantityChange, transactionData)
+      // Get current item to calculate new stock
+      const currentItem = inventoryItems.find(item => item.id === itemId)
+      if (!currentItem) {
+        throw new Error('Item not found')
+      }
+
+      const previousStock = currentItem.currentStock || 0
+      const newStock = previousStock + quantityChange
+
+      // Create transaction record in Firebase
+      const firebaseDB = (await import('../../../lib/firebase')).default
+      const transaction = {
+        id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        itemId: itemId,
+        itemName: currentItem.name,
+        type: transactionData.type || 'adjustment',
+        quantity: quantityChange,
+        previousStock: previousStock,
+        newStock: newStock,
+        reason: transactionData.reason || '',
+        notes: transactionData.notes || '',
+        performedBy: transactionData.performedBy || user?.id || 'unknown',
+        performedByName: transactionData.performedByName || user?.name || user?.email || 'Unknown User',
+        performedByRole: transactionData.performedByRole || user?.role || 'inventory-controller',
+        createdAt: new Date().toISOString(),
+        approved: true,
+        approvedBy: transactionData.performedBy || user?.id,
+        approvedByName: transactionData.performedByName || user?.name || user?.email
+      }
+
+      await firebaseDB.create(`inventory_transactions/${itemId}`, transaction)
+
+      // Update item stock
+      await inventoryApi.update(itemId, {
+        currentStock: newStock,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.id || 'unknown'
+      })
+
       toast.success('Stock updated successfully!')
 
       // Refresh the inventory data

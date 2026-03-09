@@ -8,11 +8,11 @@ Housekeeping accounts are specialized user accounts with limited access focused 
 ### Housekeeping User Role
 - **Role Name**: `housekeeping`
 - **Access Level**: Limited to housekeeping module only
-- **Capabilities**:
+- **Capabilities**:       
   - View rooms with assigned bundles
   - Perform post-checkout inspections
   - Record consumed vs. remaining items
-  - Update bundle status (needs-inspection → ready)
+  - Update bundle status (needs-inspection → ready)     
   - View room status and bundle assignments
 
 ### Restricted Access

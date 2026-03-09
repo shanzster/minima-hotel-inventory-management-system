@@ -30,10 +30,10 @@ export default function ItemDetailsModal({
     notes: ''
   })
   const [editForm, setEditForm] = useState({})
-  const [batches, setBatches] = useState([])
-  const [isFetchingBatches, setIsFetchingBatches] = useState(false)
   const [suppliers, setSuppliers] = useState([])
   const [loadingSuppliers, setLoadingSuppliers] = useState(false)
+  const [transactions, setTransactions] = useState([])
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
 
   // Load suppliers on component mount
   useEffect(() => {
@@ -53,7 +53,25 @@ export default function ItemDetailsModal({
     loadSuppliers()
   }, [])
 
-  // Initialize edit form when item changes
+  // Load transaction history for this item
+  useEffect(() => {
+    const loadTransactions = async () => {
+      if (item && item.id) {
+        try {
+          setLoadingTransactions(true)
+          const itemTransactions = await inventoryApi.getTransactions(item.id)
+          setTransactions(itemTransactions)
+        } catch (error) {
+          console.error('Error loading transactions:', error)
+          setTransactions([])
+        } finally {
+          setLoadingTransactions(false)
+        }
+      }
+    }
+
+    loadTransactions()
+  }, [item])
   useEffect(() => {
     if (item) {
       setEditForm({
@@ -66,37 +84,11 @@ export default function ItemDetailsModal({
         location: item.location || '',
         supplier: item.supplier || '',
         cost: item.cost || 0,
-        expirationDate: item.expirationDate ? new Date(item.expirationDate).toISOString().split('T')[0] : '',
-        batchNumber: item.batchNumber || '',
         notes: item.notes || '',
         imageUrl: item.imageUrl || ''
       })
     }
   }, [item])
-
-  // Fetch batches when item changes
-  useEffect(() => {
-    const fetchBatches = async () => {
-      if (item && item.id) {
-        setIsFetchingBatches(true)
-        try {
-          const itemBatches = await inventoryApi.getBatches(item.id)
-          // Sort by expiry date (soonest first)
-          const sortedBatches = itemBatches.sort((a, b) => {
-            if (!a.expirationDate) return 1
-            if (!b.expirationDate) return -1
-            return new Date(a.expirationDate) - new Date(b.expirationDate)
-          })
-          setBatches(sortedBatches)
-        } catch (error) {
-          console.error('Failed to fetch batches:', error)
-        } finally {
-          setIsFetchingBatches(false)
-        }
-      }
-    }
-    fetchBatches()
-  }, [item, showStockAdjustment, isEditing])
 
   const handleStockAdjustment = async () => {
     if (!stockAdjustment.quantity || !stockAdjustment.reason) {
@@ -109,13 +101,25 @@ export default function ItemDetailsModal({
         reason: stockAdjustment.reason,
         notes: stockAdjustment.notes,
         type: 'adjustment',
-        performedBy: 'inventory-controller',
+        performedBy: user?.id || 'inventory-controller',
+        performedByName: user?.name || user?.email || 'Inventory Controller',
+        performedByRole: user?.role || 'inventory-controller',
         timestamp: new Date().toISOString()
       })
 
       toast.success(`Stock adjusted by ${stockAdjustment.quantity > 0 ? '+' : ''}${stockAdjustment.quantity} ${item.unit}`)
       setShowStockAdjustment(false)
       setStockAdjustment({ quantity: 0, reason: '', notes: '' })
+      
+      // Reload transactions to show the new adjustment
+      if (item && item.id) {
+        try {
+          const itemTransactions = await inventoryApi.getTransactions(item.id)
+          setTransactions(itemTransactions)
+        } catch (error) {
+          console.error('Error reloading transactions:', error)
+        }
+      }
     } catch (error) {
       console.error('Error adjusting stock:', error)
       toast.error('Failed to adjust stock. Please try again.')
@@ -128,8 +132,7 @@ export default function ItemDetailsModal({
         ...editForm,
         restockThreshold: parseFloat(editForm.restockThreshold) || 0,
         maxStock: editForm.maxStock ? parseFloat(editForm.maxStock) : null,
-        cost: parseFloat(editForm.cost) || 0,
-        expirationDate: editForm.expirationDate ? new Date(editForm.expirationDate).toISOString() : null
+        cost: parseFloat(editForm.cost) || 0
       }
 
       await onUpdateItem(item.id, updatedData)
@@ -480,7 +483,7 @@ export default function ItemDetailsModal({
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Additional Details</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {isEditing ? (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -516,21 +519,6 @@ export default function ItemDetailsModal({
               onChange={(value) => handleEditFormChange('cost', parseFloat(value) || 0)}
               disabled={!isEditing}
             />
-
-            <Input
-              label="Expiration Date"
-              type="date"
-              value={isEditing ? editForm.expirationDate : (item.expirationDate ? new Date(item.expirationDate).toISOString().split('T')[0] : '')}
-              onChange={(value) => handleEditFormChange('expirationDate', value)}
-              disabled={!isEditing}
-            />
-
-            <Input
-              label="Batch Number"
-              value={isEditing ? editForm.batchNumber : item.batchNumber}
-              onChange={(value) => handleEditFormChange('batchNumber', value)}
-              disabled={!isEditing}
-            />
           </div>
 
           <Input
@@ -541,67 +529,116 @@ export default function ItemDetailsModal({
           />
         </div>
 
-        {/* Multi-Batch Expiry Tracking Section - Only show for consumables, not assets */}
-        {item.type !== 'asset' && item.type !== 'asset-instance' && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                Active Batches & Expiry Tracking
-              </h3>
-              <Badge variant="normal">{batches.length} active batches</Badge>
-            </div>
+        {/* Stock Movement History */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Stock Movement History
+          </h3>
 
-            <div className="overflow-hidden border border-slate-100 rounded-lg">
-              <table className="w-full text-left bg-white">
-                <thead className="bg-slate-100/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          {loadingTransactions ? (
+            <div className="text-center py-8 text-gray-500">
+              Loading stock movement history...
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              No stock movement history available for this item
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-2">Batch #</th>
-                    <th className="px-4 py-2">Quantity</th>
-                    <th className="px-4 py-2">Expiration</th>
-                    <th className="px-4 py-2 text-right">Status</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Date</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Type</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-700">Change</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-700">Previous</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-700">New Stock</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">By</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Reason</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 italic">
-                  {batches.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="px-4 py-8 text-center text-slate-400 text-sm">
-                        {isFetchingBatches ? 'Loading batch data...' : 'No batch data available for this item.'}
-                      </td>
-                    </tr>
-                  ) : (
-                    batches.map((batch) => {
-                      const isExpired = batch.expirationDate && new Date(batch.expirationDate) < new Date()
-                      const isExpiringSoon = batch.expirationDate &&
-                        new Date(batch.expirationDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                <tbody className="divide-y divide-gray-100">
+                  {transactions.map((txn) => {
+                    const isBundleConsumption = txn.type === 'bundle-consumption'
+                    const isAdjustment = txn.type === 'adjustment'
+                    const isStockOut = txn.type === 'stock-out'
+                    const change = isAdjustment ? txn.newStock - txn.previousStock : txn.quantity
 
-                      return (
-                        <tr key={batch.id} className="text-sm">
-                          <td className="px-4 py-3 font-mono text-xs">{batch.batchNumber || batch.id}</td>
-                          <td className="px-4 py-3 font-bold">{batch.quantity} {item.unit}</td>
-                          <td className="px-4 py-3">
-                            {batch.expirationDate ? new Date(batch.expirationDate).toLocaleDateString() : 'No expiry'}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {isExpired ? (
-                              <Badge variant="critical">EXPIRED</Badge>
-                            ) : isExpiringSoon ? (
-                              <Badge variant="warning">SOON</Badge>
-                            ) : (
-                              <Badge variant="success">HEALTHY</Badge>
+                    return (
+                      <tr key={txn.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-600">
+                          {new Date(txn.createdAt).toLocaleDateString()}
+                          <div className="text-xs text-gray-400">
+                            {new Date(txn.createdAt).toLocaleTimeString()}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {isBundleConsumption ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-purple-700">Bundle Consumption</span>
+                              {txn.bundleName && (
+                                <span className="text-xs text-gray-500">{txn.bundleName}</span>
+                              )}
+                            </div>
+                          ) : isAdjustment ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-orange-700">Adjustment</span>
+                            </div>
+                          ) : (
+                            <span className="font-semibold capitalize">
+                              {txn.type.replace('-', ' ')}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`font-bold ${
+                            change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {change > 0 ? '+' : ''}{change}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-600">
+                          {txn.previousStock}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-semibold text-gray-900">{txn.newStock}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{txn.performedByName}</span>
+                            {isBundleConsumption && txn.roomNumber && (
+                              <span className="text-xs text-gray-500">Room {txn.roomNumber}</span>
                             )}
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
+                            {txn.performedByRole && (
+                              <span className="text-xs text-gray-500 capitalize">{txn.performedByRole}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-start space-x-1">
+                            {isBundleConsumption ? (
+                              <svg className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            ) : isAdjustment ? (
+                              <svg className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                              </svg>
+                            ) : null}
+                            <span className="text-sm text-gray-600">{txn.reason || '-'}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Timestamps */}
         <div className="border-t pt-4">

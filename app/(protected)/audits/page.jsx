@@ -202,7 +202,6 @@ export default function AuditsPage() {
         })),
         discrepancies: [],
         recommendations: [],
-        complianceScore: 0,
         createdAt: new Date().toISOString()
       }
 
@@ -257,26 +256,6 @@ export default function AuditsPage() {
           <Badge variant={variants[status] || 'normal'}>
             {status ? status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ') : 'Unknown'}
           </Badge>
-        )
-      }
-    },
-    {
-      key: 'complianceScore',
-      label: 'Compliance Score',
-      sortable: true,
-      render: (score) => {
-        if (score === 0) return <span className="text-gray-400">Pending</span>
-
-        let colorClass = 'text-gray-700'
-        if (score >= 95) colorClass = 'text-green-600'
-        else if (score >= 85) colorClass = 'text-blue-600'
-        else if (score >= 75) colorClass = 'text-yellow-600'
-        else colorClass = 'text-red-600'
-
-        return (
-          <span className={`font-medium ${colorClass}`}>
-            {score}%
-          </span>
         )
       }
     },
@@ -506,7 +485,6 @@ export default function AuditsPage() {
                 <option value="auditDate">Date</option>
                 <option value="auditNumber">Audit Number</option>
                 <option value="status">Status</option>
-                <option value="complianceScore">Compliance Score</option>
               </select>
             </div>
             <div>

@@ -14,8 +14,6 @@ export default function RestockForm({
     quantity: '',
     reason: '',
     supplier: '',
-    batchNumber: '',
-    expirationDate: '',
     destination: ''
   })
 
@@ -85,8 +83,6 @@ export default function RestockForm({
       quantity: parseFloat(formData.quantity),
       reason: formData.reason,
       supplier: formData.supplier,
-      batchNumber: formData.batchNumber,
-      expirationDate: formData.expirationDate,
       destination: formData.destination,
       timestamp: new Date().toISOString()
     }
@@ -116,14 +112,13 @@ export default function RestockForm({
       { label: 'Kitchen Usage', value: 'kitchen-usage' },
       { label: 'Housekeeping', value: 'housekeeping' },
       { label: 'Maintenance', value: 'maintenance' },
-      { label: 'Damaged/Expired', value: 'damaged-expired' },
+      { label: 'Damaged', value: 'damaged' },
       { label: 'Transfer', value: 'transfer' },
       { label: 'Other', value: 'other' }
     ],
     'adjustment': [
       { label: 'Physical Count Correction', value: 'physical-count' },
       { label: 'Damaged Items', value: 'damaged' },
-      { label: 'Expired Items', value: 'expired' },
       { label: 'Lost Items', value: 'lost' },
       { label: 'System Error Correction', value: 'system-error' },
       { label: 'Other', value: 'other' }
@@ -197,33 +192,16 @@ export default function RestockForm({
         </div>
 
         {transactionType === 'stock-in' && (
-          <>
-            <Input
-              type="select"
-              label="Supplier"
-              value={formData.supplier}
-              onChange={(value) => handleInputChange('supplier', value)}
-              options={suppliers}
-              placeholder="Select supplier"
-              required
-              error={errors.supplier}
-            />
-
-            <Input
-              type="text"
-              label="Batch Number"
-              value={formData.batchNumber}
-              onChange={(value) => handleInputChange('batchNumber', value)}
-              placeholder="Enter batch number"
-            />
-
-            <Input
-              type="date"
-              label="Expiration Date"
-              value={formData.expirationDate}
-              onChange={(value) => handleInputChange('expirationDate', value)}
-            />
-          </>
+          <Input
+            type="select"
+            label="Supplier"
+            value={formData.supplier}
+            onChange={(value) => handleInputChange('supplier', value)}
+            options={suppliers}
+            placeholder="Select supplier"
+            required
+            error={errors.supplier}
+          />
         )}
 
         {(transactionType === 'stock-out' || transactionType === 'adjustment') && (

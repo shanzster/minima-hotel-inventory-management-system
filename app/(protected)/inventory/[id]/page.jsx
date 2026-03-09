@@ -19,6 +19,7 @@ export default function InventoryItemPage({ params }) {
   const [loading, setLoading] = useState(true)
   const [showTransactionManager, setShowTransactionManager] = useState(false)
   const [itemId, setItemId] = useState(null)
+  const [bundleConsumptionStats, setBundleConsumptionStats] = useState(null)
   
   useEffect(() => {
     // Handle async params in Next.js 15
@@ -38,10 +39,36 @@ export default function InventoryItemPage({ params }) {
       const foundItem = mockInventoryItems.find(i => i.id === itemId)
       if (foundItem) {
         setItem(foundItem)
+        loadBundleConsumptionStats(itemId)
       }
       setLoading(false)
     }
   }, [itemId])
+
+  const loadBundleConsumptionStats = async (itemId) => {
+    try {
+      const inventoryApi = (await import('../../../../lib/inventoryApi')).default
+      const transactions = await inventoryApi.getTransactions(itemId)
+      
+      // Filter bundle consumption transactions
+      const bundleTransactions = transactions.filter(t => t.type === 'bundle-consumption')
+      
+      if (bundleTransactions.length > 0) {
+        const totalConsumed = bundleTransactions.reduce((sum, t) => sum + Math.abs(t.quantity), 0)
+        const uniqueRooms = new Set(bundleTransactions.map(t => t.roomId)).size
+        const lastConsumption = bundleTransactions[0] // Already sorted by date
+        
+        setBundleConsumptionStats({
+          totalConsumed,
+          uniqueRooms,
+          transactionCount: bundleTransactions.length,
+          lastConsumption
+        })
+      }
+    } catch (error) {
+      console.error('Error loading bundle consumption stats:', error)
+    }
+  }
   
   const handleTransactionComplete = (transaction) => {
     // Update item stock level based on transaction
@@ -93,21 +120,7 @@ export default function InventoryItemPage({ params }) {
     return 'normal'
   }
   
-  const getExpiryStatus = () => {
-    if (!item.expirationDate) return null
-    
-    const now = new Date()
-    const expiryDate = new Date(item.expirationDate)
-    const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24))
-    
-    if (daysUntilExpiry < 0) return 'expired'
-    if (daysUntilExpiry <= 7) return 'expiring-soon'
-    if (daysUntilExpiry <= 30) return 'expiring-month'
-    return 'good'
-  }
-  
   const stockStatus = getStockStatus()
-  const expiryStatus = getExpiryStatus()
   
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -142,6 +155,59 @@ export default function InventoryItemPage({ params }) {
         
         {/* Alerts */}
         <div className="space-y-4">
+          {/* Bundle Consumption Stats */}
+          {bundleConsumptionStats && (
+            <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-purple-100 p-3 rounded-lg">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-purple-900 text-lg">Bundle Consumption Tracking</h3>
+                    <p className="text-sm text-purple-700">
+                      This item is being consumed through housekeeping bundle inspections
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowTransactionManager(true)}
+                  className="text-purple-600 hover:text-purple-800 font-medium text-sm underline"
+                >
+                  View Details
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-4 mt-4">
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <div className="text-2xl font-bold text-purple-900">
+                    {bundleConsumptionStats.totalConsumed}
+                  </div>
+                  <div className="text-xs text-purple-600">Total Consumed</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <div className="text-2xl font-bold text-purple-900">
+                    {bundleConsumptionStats.uniqueRooms}
+                  </div>
+                  <div className="text-xs text-purple-600">Rooms</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <div className="text-2xl font-bold text-purple-900">
+                    {bundleConsumptionStats.transactionCount}
+                  </div>
+                  <div className="text-xs text-purple-600">Inspections</div>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <div className="text-sm font-medium text-purple-900">
+                    {new Date(bundleConsumptionStats.lastConsumption.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="text-xs text-purple-600">Last Consumption</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {stockStatus === 'critical' && (
             <AlertBanner
               type="critical-stock"
@@ -157,22 +223,6 @@ export default function InventoryItemPage({ params }) {
               message="This item is running low and may need restocking soon."
               actionLabel="Manage Stock"
               onAction={() => setShowTransactionManager(true)}
-            />
-          )}
-          
-          {expiryStatus === 'expired' && (
-            <AlertBanner
-              type="error"
-              message="This item has expired and should be removed from inventory."
-              actionLabel="Manage Stock"
-              onAction={() => setShowTransactionManager(true)}
-            />
-          )}
-          
-          {expiryStatus === 'expiring-soon' && (
-            <AlertBanner
-              type="warning"
-              message="This item is expiring within 7 days."
             />
           )}
         </div>

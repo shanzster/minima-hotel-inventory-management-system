@@ -10,11 +10,13 @@ export async function POST(request) {
     // Get API key from server-side environment
     const apiKey = process.env.BREVO_API_KEY
     const senderEmail = process.env.BREVO_SENDER_EMAIL
+    const senderName = process.env.BREVO_SENDER_NAME || 'Minima Hotel Inventory'
     
     console.log('🔍 Environment check:', {
       hasApiKey: !!apiKey,
       apiKeyLength: apiKey ? apiKey.length : 0,
-      senderEmail: senderEmail || 'not set'
+      senderEmail: senderEmail || 'not set',
+      senderName: senderName
     })
     
     if (!apiKey) {
@@ -31,8 +33,8 @@ export async function POST(request) {
 
     const emailData = {
       sender: {
-        name: "Minima Hotel Inventory",
-        email: senderEmail || "seanthetechyyy@gmail.com"
+        name: senderName,
+        email: senderEmail || "chicorlcruz@gmail.com"
       },
       to: [
         {
@@ -82,16 +84,18 @@ export async function POST(request) {
       
       // Provide more specific error messages
       let errorMessage = result.message || result.error || 'Failed to send email'
-      if (result.error === 'API Key is not enabled') {
-        errorMessage = 'BREVO API key is not enabled. Please verify your BREVO account and activate your API key.'
+      let troubleshooting = null
+      
+      if (result.code === 'unauthorized' || result.message?.includes('API key')) {
+        errorMessage = 'BREVO API key is invalid or not enabled. Please verify your API key.'
+        troubleshooting = 'Steps to fix:\n1. Login to app.brevo.com\n2. Go to SMTP & API → API Keys\n3. Make sure your API key is active\n4. Verify your sender email (chicorlcruz@gmail.com) in Senders section\n5. Restart your development server after updating .env.local'
       }
       
       return NextResponse.json(
         { 
           error: errorMessage,
           details: result,
-          troubleshooting: result.error === 'API Key is not enabled' ? 
-            'Please check your BREVO account verification status and API key permissions.' : null
+          troubleshooting: troubleshooting
         },
         { status: 400 }
       )
@@ -99,7 +103,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('❌ Email sending failed:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }

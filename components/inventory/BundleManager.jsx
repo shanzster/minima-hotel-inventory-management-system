@@ -7,7 +7,7 @@ import roomsApi from '../../lib/roomsApi'
 import { inventoryApi } from '../../lib/inventoryApi'
 import bundlesApi from '../../lib/bundlesApi'
 
-export default function BundleManager({ bundles = [], onCreateBundle, onEditBundle, onDeleteBundle, onAssignBundle, onClearAllAssignments }) {
+export default function BundleManager({ bundles = [], onCreateBundle, onEditBundle, onDeleteBundle, onAssignBundle, onClearAllAssignments, showClearAllModal, assignedRoomsCount, onConfirmClearAll, onCancelClearAll }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [selectedBundle, setSelectedBundle] = useState(null)
@@ -673,6 +673,71 @@ export default function BundleManager({ bundles = [], onCreateBundle, onEditBund
           </div>
         </Modal>
       )}
+
+      {/* Clear All Confirmation Modal */}
+      <Modal
+        isOpen={showClearAllModal}
+        onClose={onCancelClearAll}
+        title="Clear All Bundle Assignments"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-red-900 mb-1">Warning: This action cannot be undone</h4>
+                <p className="text-sm text-red-800">
+                  You are about to remove ALL bundle assignments from all rooms in the system.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Rooms with assigned bundles:</span>
+              <span className="text-2xl font-bold text-gray-900">{assignedRoomsCount}</span>
+            </div>
+            <p className="text-xs text-gray-600">
+              All {assignedRoomsCount} room{assignedRoomsCount !== 1 ? 's' : ''} will have their bundle assignments removed.
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start space-x-2">
+              <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-blue-800">
+                This will not delete the bundles themselves, only remove their assignments to rooms. You can reassign bundles to rooms after clearing.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <Button
+              variant="ghost"
+              onClick={onCancelClearAll}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={onConfirmClearAll}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear All Assignments
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

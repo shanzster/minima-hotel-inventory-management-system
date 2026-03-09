@@ -16,6 +16,7 @@ import purchaseOrderApi from '../../../lib/purchaseOrderApi'
 import inventoryApi from '../../../lib/inventoryApi'
 import budgetApi from '../../../lib/budgetApi'
 import { useAuth } from '../../../hooks/useAuth'
+import toast from '../../../lib/toast'
 
 export default function PurchaseOrdersPage() {
   const { setTitle } = usePageTitle()
@@ -39,9 +40,9 @@ export default function PurchaseOrdersPage() {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [selectedOrderForEmail, setSelectedOrderForEmail] = useState(null)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [successMessage, setSuccessMessage] = useState('')
   const [showReceiveModal, setShowReceiveModal] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null)
   const [orderToReceive, setOrderToReceive] = useState(null)
   const [currentBudget, setCurrentBudget] = useState(null)
   const [monthlySpending, setMonthlySpending] = useState(0)
@@ -603,17 +604,11 @@ export default function PurchaseOrdersPage() {
       await purchaseOrderApi.create(newOrder)
       setShowCreateModal(false)
 
-      // Show success modal instead of alert
-      setSuccessMessage(`Purchase order ${newOrder.orderNumber} created successfully!`)
-      setShowSuccessModal(true)
-
-      // Auto-close success modal after 3 seconds
-      setTimeout(() => {
-        setShowSuccessModal(false)
-      }, 3000)
+      // Show success toast
+      toast.success(`Purchase order ${newOrder.orderNumber} created successfully!`)
     } catch (error) {
       console.error('Error creating purchase order:', error)
-      alert('Failed to create purchase order. Please try again.')
+      toast.error('Failed to create purchase order. Please try again.')
     }
   }
 
@@ -728,7 +723,8 @@ export default function PurchaseOrdersPage() {
                 {
                   status: newStatus,
                   reason: reason,
-                  changedBy: 'inventory-controller-001',
+                  changedBy: user?.uid || 'inventory-controller-001',
+                  changedByName: user?.displayName || 'Inventory Controller',
                   changedAt: new Date().toISOString()
                 }
               ],
@@ -738,28 +734,44 @@ export default function PurchaseOrdersPage() {
             // Add specific timestamps for certain status changes
             if (newStatus === 'approved') {
               statusUpdate.approvedAt = new Date().toISOString()
-              statusUpdate.approvedBy = 'inventory-controller-001'
+              statusUpdate.approvedBy = user?.uid || 'inventory-controller-001'
+              statusUpdate.approvedByName = user?.displayName || 'Inventory Controller'
             } else if (newStatus === 'rejected') {
               statusUpdate.rejectedAt = new Date().toISOString()
-              statusUpdate.rejectedBy = 'inventory-controller-001'
+              statusUpdate.rejectedBy = user?.uid || 'inventory-controller-001'
+              statusUpdate.rejectedByName = user?.displayName || 'Inventory Controller'
             }
 
             await purchaseOrderApi.update(order.id, statusUpdate)
 
-            // Show success feedback
+            // Show success toast
             const statusLabel = newStatus.charAt(0).toUpperCase() + newStatus.slice(1)
-            setSuccessMessage(`✅ Order ${statusLabel}!\n\nOrder ${order.orderNumber} has been ${statusLabel.toLowerCase()}.`)
-            setShowSuccessModal(true)
+            toast.success(`Order ${statusLabel}!\n\nOrder ${order.orderNumber} has been ${statusLabel.toLowerCase()}.`)
 
-            // Auto-close success modal after 3 seconds
-            setTimeout(() => {
-              setShowSuccessModal(false)
-            }, 3000)
+            // Close confirmation modal
+            setShowConfirmModal(false)
+            setConfirmAction(null)
 
           } catch (error) {
             console.error('Error updating status:', error)
-            alert('❌ Failed to update status. Please try again.')
+            toast.error('Failed to update status. Please try again.')
           }
+        }
+
+        // Show confirmation modal before approving/rejecting
+        const showConfirmation = (action, order) => {
+          setConfirmAction({
+            action,
+            order,
+            onConfirm: () => {
+              if (action === 'approve') {
+                handleQuickStatusUpdate('approved', 'Order approved for procurement')
+              } else if (action === 'reject') {
+                handleQuickStatusUpdate('rejected', 'Order rejected by inventory controller')
+              }
+            }
+          })
+          setShowConfirmModal(true)
         }
 
         return (
@@ -770,7 +782,7 @@ export default function PurchaseOrdersPage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleQuickStatusUpdate('approved', 'Order approved for procurement')
+                    showConfirmation('approve', order)
                   }}
                   className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors shadow-sm"
                   title="Approve this order"
@@ -783,7 +795,7 @@ export default function PurchaseOrdersPage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleQuickStatusUpdate('rejected', 'Order rejected by inventory controller')
+                    showConfirmation('reject', order)
                   }}
                   className="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors shadow-sm"
                   title="Reject this order"
@@ -1672,27 +1684,61 @@ export default function PurchaseOrdersPage() {
         order={selectedOrderForEmail}
       />
 
-      {/* Success Modal */}
+      {/* Confirmation Modal */}
       <Modal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false)
+          setConfirmAction(null)
+        }}
         size="md"
         centered={true}
       >
-        <div className="p-6 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+        <div className="p-6">
+          <div className={`w-16 h-16 ${confirmAction?.action === 'approve' ? 'bg-green-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+            {confirmAction?.action === 'approve' ? (
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
           </div>
-          <h3 className="text-xl font-heading font-bold text-gray-900 mb-2">
-            Success!
+          <h3 className="text-xl font-heading font-bold text-gray-900 mb-2 text-center">
+            {confirmAction?.action === 'approve' ? 'Approve Order?' : 'Reject Order?'}
           </h3>
-          <p className="text-gray-600">
-            {successMessage}
+          <p className="text-gray-600 text-center mb-6">
+            {confirmAction?.action === 'approve' 
+              ? `Are you sure you want to approve order ${confirmAction?.order?.orderNumber}?`
+              : `Are you sure you want to reject order ${confirmAction?.order?.orderNumber}?`
+            }
           </p>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                setShowConfirmModal(false)
+                setConfirmAction(null)
+              }}
+              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => confirmAction?.onConfirm()}
+              className={`flex-1 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                confirmAction?.action === 'approve' 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              {confirmAction?.action === 'approve' ? 'Approve' : 'Reject'}
+            </button>
+          </div>
         </div>
       </Modal>
+
       {/* Receive PO Modal */}
       <ReceivePOModal
         isOpen={showReceiveModal}

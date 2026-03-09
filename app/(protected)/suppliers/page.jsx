@@ -573,10 +573,18 @@ export default function SuppliersPage() {
   // Handle update supplier
   const handleUpdateSupplier = async (supplierId, supplierData) => {
     try {
-      await supplierApi.update(supplierId, {
+      const updated = await supplierApi.update(supplierId, {
         ...supplierData,
         updatedAt: new Date().toISOString()
       })
+      
+      // Update the selected supplier in modal
+      setSelectedSupplier(updated)
+      
+      // Refresh the suppliers list in background
+      const allSuppliers = await supplierApi.getAll()
+      setSuppliers(allSuppliers)
+      
       setSuccessMessage('Supplier updated successfully!')
       setShowSuccessModal(true)
 
@@ -620,6 +628,10 @@ export default function SuppliersPage() {
       await supplierApi.create(newSupplier)
       setShowCreateModal(false)
 
+      // Auto-refresh suppliers list
+      const allSuppliers = await supplierApi.getAll()
+      setSuppliers(allSuppliers)
+
       // Show success modal with appropriate message
       const message = shouldAutoApprove 
         ? 'Supplier created and approved successfully!' 
@@ -640,7 +652,17 @@ export default function SuppliersPage() {
   // Handle supplier approval
   const handleApproveSupplier = async (supplierId) => {
     try {
-      await supplierApi.approveSupplier(supplierId, 'purchasing-officer-001')
+      const updated = await supplierApi.approveSupplier(supplierId, user?.name || user?.email || 'admin')
+      
+      // Update selected supplier if modal is open
+      if (selectedSupplier && selectedSupplier.id === supplierId) {
+        setSelectedSupplier(updated)
+      }
+      
+      // Auto-refresh suppliers list
+      const allSuppliers = await supplierApi.getAll()
+      setSuppliers(allSuppliers)
+      
       setSuccessMessage('Supplier approved successfully!')
       setShowSuccessModal(true)
 

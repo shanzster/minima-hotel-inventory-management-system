@@ -102,11 +102,6 @@ export default function AuditExecutionModal({
 
         setIsSubmitting(true)
         try {
-            // Calculate overall compliance score
-            const totalItems = items.length
-            const accurateItems = items.filter(item => Math.abs(item.discrepancy) === 0).length
-            const complianceScore = Math.round((accurateItems / totalItems) * 100)
-
             // Convert condition breakdown to numbers for storage
             const itemsWithNumbers = items.map(item => ({
                 ...item,
@@ -134,7 +129,6 @@ export default function AuditExecutionModal({
                 ...audit,
                 items: itemsWithNumbers,
                 discrepancies,
-                complianceScore,
                 status: 'completed',
                 completedAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -440,33 +434,36 @@ export default function AuditExecutionModal({
             </div>
 
             {/* Footer Actions */}
-            <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-between items-center">
-                <Button
-                    variant="ghost"
-                    onClick={onCancel}
-                    disabled={isSubmitting}
-                    className="font-bold text-gray-500 hover:text-gray-900"
-                >
-                    Close Without Saving
-                </Button>
+            <div className="px-6 py-4 bg-white border-t border-gray-200">
+                {/* Manual Compliance Score Section */}
+                <div className="flex justify-between items-center">
+                    <Button
+                        variant="ghost"
+                        onClick={onCancel}
+                        disabled={isSubmitting}
+                        className="font-bold text-gray-500 hover:text-gray-900"
+                    >
+                        Close Without Saving
+                    </Button>
 
-                <div className="flex space-x-3">
-                    <Button
-                        onClick={handleSaveDraft}
-                        isLoading={isSubmitting}
-                        disabled={isSubmitting}
-                        className="bg-white text-black border-2 border-slate-200 hover:bg-slate-50 px-8 py-3 rounded-xl font-bold"
-                    >
-                        Save Progress
-                    </Button>
-                    <Button
-                        onClick={handleFinalize}
-                        isLoading={isSubmitting}
-                        disabled={isSubmitting}
-                        className="bg-black text-white hover:bg-gray-800 px-10 py-3 rounded-xl font-bold shadow-lg"
-                    >
-                        Finalize Audit
-                    </Button>
+                    <div className="flex space-x-3">
+                        <Button
+                            onClick={handleSaveDraft}
+                            isLoading={isSubmitting}
+                            disabled={isSubmitting}
+                            className="bg-white text-black border-2 border-slate-200 hover:bg-slate-50 px-8 py-3 rounded-xl font-bold"
+                        >
+                            Save Progress
+                        </Button>
+                        <Button
+                            onClick={handleFinalize}
+                            isLoading={isSubmitting}
+                            disabled={isSubmitting}
+                            className="bg-black text-white hover:bg-gray-800 px-10 py-3 rounded-xl font-bold shadow-lg"
+                        >
+                            Finalize Audit
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -5,13 +5,13 @@ import { usePageTitle } from '../../../../hooks/usePageTitle'
 import { useAuth } from '../../../../hooks/useAuth'
 import { formatCurrency } from '../../../../lib/utils'
 import inventoryApi from '../../../../lib/inventoryApi'
-import { mockPurchaseOrders, getLowStockItems } from '../../../../lib/mockData'
 
 export default function PurchasingOfficerDashboardPage() {
   const { setTitle } = usePageTitle()
   const { user, hasRole } = useAuth()
   const [purchaseOrders, setPurchaseOrders] = useState([])
   const [inventoryItems, setInventoryItems] = useState([])
+  const [lowStockItems, setLowStockItems] = useState([])
   const [loading, setLoading] = useState(true)
   
   // Load data
@@ -26,6 +26,21 @@ export default function PurchasingOfficerDashboardPage() {
         ])
         setPurchaseOrders(ordersData)
         setInventoryItems(inventoryData)
+        
+        // Calculate real low stock items
+        const realLowStockItems = inventoryData.filter(item => {
+          // Exclude asset instances
+          if (item.type === 'asset-instance' || item.type === 'assigned-asset') return false
+          
+          // Check if current stock is at or below minimum stock or restock threshold
+          const currentStock = parseFloat(item.currentStock) || 0
+          const minStock = parseFloat(item.minStock) || 0
+          const restockThreshold = parseFloat(item.restockThreshold) || 0
+          
+          return currentStock <= minStock || currentStock <= restockThreshold
+        })
+        
+        setLowStockItems(realLowStockItems)
       } catch (error) {
         console.error('Error loading dashboard data:', error)
       } finally {
@@ -46,7 +61,6 @@ export default function PurchasingOfficerDashboardPage() {
   const approvedOrders = purchaseOrders.filter(po => po.status === 'approved')
   const inTransitOrders = purchaseOrders.filter(po => po.status === 'in-transit')
   const deliveredOrders = purchaseOrders.filter(po => po.status === 'delivered')
-  const lowStockItems = getLowStockItems()
   
   const totalOrderValue = purchaseOrders
     .filter(po => po.status !== 'rejected')

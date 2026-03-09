@@ -45,7 +45,7 @@ export default function TransactionManager({
     { label: 'CleanPro Solutions', value: 'cleanpro-solutions' }
   ]
 
-  const processTransaction = (transactionData) => {
+  const processTransaction = async (transactionData) => {
     if (!user) {
       setAlerts([{
         type: 'error',
@@ -55,64 +55,83 @@ export default function TransactionManager({
       return
     }
 
-    // Create transaction record
-    const transaction = {
-      id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      itemId: transactionData.itemId,
-      itemName: transactionData.itemName,
-      type: transactionData.type,
-      quantity: transactionData.quantity,
-      previousStock: currentItem?.currentStock || 0,
-      newStock: calculateNewStock(transactionData),
-      reason: transactionData.reason || '',
-      supplier: transactionData.supplier || null,
-      batchNumber: transactionData.batchNumber || null,
-      expirationDate: transactionData.expirationDate || null,
-      destination: transactionData.destination || null,
-      performedBy: user.id,
-      performedByName: user.name,
-      performedByRole: user.role,
-      createdAt: new Date(),
-      approved: requiresApproval(transactionData) ? false : true,
-      approvedBy: requiresApproval(transactionData) ? null : user.id
-    }
-
-    // Add to transactions list
-    setTransactions(prev => [transaction, ...prev])
-
-    // Update item stock level
-    if (currentItem) {
-      const updatedItem = {
-        ...currentItem,
-        currentStock: transaction.newStock,
-        updatedAt: new Date(),
-        updatedBy: user.id
+    try {
+      // Create transaction record
+      const transaction = {
+        id: `txn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        itemId: transactionData.itemId,
+        itemName: transactionData.itemName,
+        type: transactionData.type,
+        quantity: transactionData.quantity,
+        previousStock: currentItem?.currentStock || 0,
+        newStock: calculateNewStock(transactionData),
+        reason: transactionData.reason || '',
+        supplier: transactionData.supplier || null,
+        destination: transactionData.destination || null,
+        performedBy: user.id,
+        performedByName: user.name || user.email,
+        performedByRole: user.role,
+        createdAt: new Date().toISOString(),
+        approved: requiresApproval(transactionData) ? false : true,
+        approvedBy: requiresApproval(transactionData) ? null : user.id,
+        approvedByName: requiresApproval(transactionData) ? null : (user.name || user.email)
       }
-      setCurrentItem(updatedItem)
-    }
 
-    // Generate alerts based on new stock level
-    generateStockAlerts(transaction)
+      // Save transaction to Firebase
+      const firebaseDB = (await import('../../lib/firebase')).default
+      await firebaseDB.create(`inventory_transactions/${transactionData.itemId}`, transaction)
 
-    // Handle approval workflow
-    if (requiresApproval(transactionData)) {
-      setPendingApprovals(prev => [...prev, transaction])
+      // Update item stock in Firebase
+      await inventoryApi.update(transactionData.itemId, {
+        currentStock: transaction.newStock,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.id
+      })
+
+      // Add to local transactions list
+      setTransactions(prev => [transaction, ...prev])
+
+      // Update local item state
+      if (currentItem) {
+        const updatedItem = {
+          ...currentItem,
+          currentStock: transaction.newStock,
+          updatedAt: new Date(),
+          updatedBy: user.id
+        }
+        setCurrentItem(updatedItem)
+      }
+
+      // Generate alerts based on new stock level
+      generateStockAlerts(transaction)
+
+      // Handle approval workflow
+      if (requiresApproval(transactionData)) {
+        setPendingApprovals(prev => [...prev, transaction])
+        setAlerts(prev => [...prev, {
+          type: 'info',
+          message: 'Transaction submitted for approval',
+          items: [{ name: transactionData.itemName, id: transactionData.itemId }]
+        }])
+      } else {
+        setAlerts(prev => [...prev, {
+          type: 'success',
+          message: `${transactionData.type} transaction completed successfully`,
+          items: [{ name: transactionData.itemName, id: transactionData.itemId }]
+        }])
+      }
+
+      // Close form and notify parent
+      setShowTransactionForm(false)
+      onTransactionComplete(transaction)
+    } catch (error) {
+      console.error('Error processing transaction:', error)
       setAlerts(prev => [...prev, {
-        type: 'info',
-        message: 'Transaction submitted for approval',
-        items: [{ name: transactionData.itemName, id: transactionData.itemId }]
-      }])
-    } else {
-      setAlerts(prev => [...prev, {
-        type: 'success',
-        message: `${transactionData.type} transaction completed successfully`,
-        items: [{ name: transactionData.itemName, id: transactionData.itemId }]
+        type: 'error',
+        message: `Failed to process transaction: ${error.message}`,
+        items: []
       }])
     }
-
-    // Close form and notify parent
-    setShowTransactionForm(false)
-    onTransactionComplete(transaction)
   }
 
   const calculateNewStock = (transactionData) => {
@@ -221,13 +240,169 @@ export default function TransactionManager({
 
   const getTransactionColumns = () => [
     { key: 'createdAt', label: 'Date', render: (value) => new Date(value).toLocaleDateString() },
-    { key: 'type', label: 'Type', render: (value) => value.replace('-', ' ').toUpperCase() },
-    { key: 'quantity', label: 'Quantity' },
+    { 
+      key: 'type', 
+      label: 'Type', 
+      render: (value, row) => {
+        if (value === 'bundle-consumption') {
+          return (
+            <div className="flex flex-col">
+              <span className="font-semibold text-purple-700">Bundle Consumption</span>
+              {row.bundleName && (
+                <span className="text-xs text-gray-500">{row.bundleName}</span>
+              )}
+            </div>
+          )
+        }
+        if (value === 'adjustment') {
+          return (
+            <div className="flex flex-col">
+              <span className="font-semibold text-orange-700">Stock Adjustment</span>
+              {row.reason && (
+                <span className="text-xs text-gray-500">{row.reason}</span>
+              )}
+            </div>
+          )
+        }
+        return (
+          <span className="font-semibold capitalize">
+            {value.replace('-', ' ')}
+          </span>
+        )
+      }
+    },
+    { 
+      key: 'quantity', 
+      label: 'Quantity',
+      render: (value, row) => {
+        const isConsumption = row.type === 'bundle-consumption'
+        const isAdjustment = row.type === 'adjustment'
+        const isStockOut = row.type === 'stock-out'
+        
+        if (isAdjustment) {
+          const change = value - row.previousStock
+          return (
+            <div className="flex flex-col">
+              <span className={`font-semibold ${change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                {change > 0 ? '+' : ''}{change}
+              </span>
+              <span className="text-xs text-gray-500">New: {value}</span>
+            </div>
+          )
+        }
+        
+        return (
+          <span className={`font-semibold ${isConsumption || isStockOut ? 'text-red-600' : 'text-green-600'}`}>
+            {value > 0 ? '+' : ''}{value}
+          </span>
+        )
+      }
+    },
     { key: 'previousStock', label: 'Previous Stock' },
-    { key: 'newStock', label: 'New Stock' },
-    { key: 'performedByName', label: 'Performed By' },
-    { key: 'reason', label: 'Reason' },
-    { key: 'approved', label: 'Status', render: (value) => value ? 'Approved' : 'Pending' }
+    { 
+      key: 'newStock', 
+      label: 'New Stock',
+      render: (value, row) => {
+        const change = value - row.previousStock
+        return (
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold">{value}</span>
+            {change !== 0 && (
+              <span className={`text-xs ${change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ({change > 0 ? '+' : ''}{change})
+              </span>
+            )}
+          </div>
+        )
+      }
+    },
+    { 
+      key: 'performedByName', 
+      label: 'Performed By',
+      render: (value, row) => {
+        if (row.type === 'bundle-consumption') {
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium">{value}</span>
+              {row.roomId && (
+                <span className="text-xs text-gray-500">Room {row.roomId}</span>
+              )}
+            </div>
+          )
+        }
+        if (row.type === 'adjustment') {
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium">{value}</span>
+              <span className="text-xs text-orange-600">Adjusted Stock</span>
+            </div>
+          )
+        }
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{value}</span>
+            {row.performedByRole && (
+              <span className="text-xs text-gray-500 capitalize">{row.performedByRole}</span>
+            )}
+          </div>
+        )
+      }
+    },
+    { 
+      key: 'reason', 
+      label: 'Reason',
+      render: (value, row) => {
+        if (row.type === 'bundle-consumption') {
+          return (
+            <div className="flex items-center space-x-1">
+              <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <span>{value}</span>
+            </div>
+          )
+        }
+        if (row.type === 'adjustment') {
+          return (
+            <div className="flex items-center space-x-1">
+              <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              <span className="text-sm">{value || 'Manual adjustment'}</span>
+            </div>
+          )
+        }
+        return value || '-'
+      }
+    },
+    { 
+      key: 'approved', 
+      label: 'Status', 
+      render: (value, row) => {
+        if (row.type === 'bundle-consumption') {
+          return (
+            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+              Auto-Approved
+            </span>
+          )
+        }
+        if (row.type === 'adjustment') {
+          return (
+            <div className="flex flex-col">
+              <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                value ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+              }`}>
+                {value ? 'Approved' : 'Pending'}
+              </span>
+              {value && row.approvedByName && (
+                <span className="text-xs text-gray-500 mt-1">by {row.approvedByName}</span>
+              )}
+            </div>
+          )
+        }
+        return value ? 'Approved' : 'Pending'
+      }
+    }
   ]
 
   const getItemTransactions = () => {
